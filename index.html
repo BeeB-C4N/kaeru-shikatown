@@ -5,14 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>かえる、志賀町ダッシュボード</title>
     
-    <!-- Tailwind CSS (スタイリング用) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Chart.js & Annotation Plugin (グラフ用) -->
+    <!-- Chart.js & Plugins -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     
-    <!-- Lucide Icons (アイコン用) -->
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Google Fonts -->
@@ -26,21 +27,23 @@
             background-color: #F8FAFC; /* slate-50 */
             color: #1F2937; /* gray-800 */
         }
-        .shika-gradient {
-            background: linear-gradient(135deg, #0088CE, #00A756);
-        }
         .chart-container {
             position: relative;
-            height: 400px; /* 少し高さを確保 */
+            height: 400px;
+            width: 100%;
+        }
+        .chart-container-sm {
+            position: relative;
+            height: 300px;
             width: 100%;
         }
         /* トランジション */
         .btn-transition {
             transition: all 0.2s ease-in-out;
         }
-        /* Nav Tab Styles - 幅を固定し、丸みを帯びたデザインに統一 */
+        /* Nav Tab Styles */
         .nav-tab {
-            @apply w-28 py-2.5 text-sm font-medium rounded-full transition-all whitespace-nowrap border text-center flex-shrink-0;
+            @apply w-28 py-2.5 text-sm font-medium rounded-full transition-all whitespace-nowrap border text-center flex-shrink-0 cursor-pointer;
         }
         .nav-tab.active {
             @apply text-white shadow-md font-bold border-transparent;
@@ -49,14 +52,23 @@
         .nav-tab.inactive {
             @apply bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700;
         }
+        
+        /* カスタムスクロールバー非表示 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
     </style>
 </head>
 <body>
 
     <!-- Header -->
-    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm">
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <div class="max-w-5xl mx-auto px-4 py-4 md:h-20 flex flex-col md:flex-row items-center justify-between gap-4">
-            <!-- Logo area -->
+            <!-- Logo -->
             <div class="flex items-center gap-2 self-start md:self-auto">
                 <h1 class="text-xl md:text-2xl font-bold tracking-tight text-gray-800">
                     かえる、志賀町
@@ -64,127 +76,114 @@
             </div>
 
             <!-- Navigation Tabs -->
-            <!-- flex-nowrap と overflow-x-auto でスマホでも横スクロール可能にしつつ、各ボタンの幅を維持 -->
             <nav class="flex w-full md:w-auto overflow-x-auto gap-3 no-scrollbar pb-2 md:pb-0 px-1 md:px-0">
-                <button class="nav-tab active">人口</button>
-                <button class="nav-tab inactive">観光</button>
-                <button class="nav-tab inactive">漁業</button>
+                <button class="nav-tab active" data-tab="population" onclick="switchTab('population')">人口</button>
+                <button class="nav-tab inactive" data-tab="tourism" onclick="switchTab('tourism')">観光</button>
+                <button class="nav-tab inactive" onclick="alert('漁業ページへ遷移（デモ）')">漁業</button>
             </nav>
 
             <!-- Date Label -->
-            <div id="latest-date" class="text-xs text-gray-400 self-end md:self-auto hidden md:block">
-                <!-- 日付はJSで挿入 -->
+            <div class="text-xs text-gray-400 self-end md:self-auto hidden md:block">
+                <span id="header-date">--- 現在</span>
             </div>
         </div>
     </header>
 
     <main class="max-w-5xl mx-auto px-4 py-6 space-y-6 pb-12">
         
-        <!-- Mobile Date Label (moved here for better mobile layout) -->
+        <!-- Mobile Date Label -->
         <div class="md:hidden text-right text-xs text-gray-400 -mt-2 mb-2">
-            <span id="latest-date-mobile"></span>
+            <span id="header-date-mobile">--- 現在</span>
         </div>
 
-        <!-- Intro -->
-        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-            <h2 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
-                <i data-lucide="activity" class="w-5 h-5 text-blue-500"></i>
-                人口・人流モニタリング
-            </h2>
-            <p class="text-gray-500 text-sm leading-relaxed mt-1">
-                志賀町の人口推移と人の流れ（転入・転出）を可視化しました。
-                データの変化から復旧・復興の現状を読み解きます。
-            </p>
-        </div>
-
-        <!-- Controls: Time Range -->
-        <div class="flex justify-center md:justify-end gap-2" id="filter-buttons">
-            <button data-range="all" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-blue-600 text-white shadow-md">
-                全期間
-            </button>
-            <button data-range="post-quake" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-white text-gray-500 border border-gray-200 hover:bg-gray-50">
-                震災後 (2024.1~)
-            </button>
-            <button data-range="1year" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-white text-gray-500 border border-gray-200 hover:bg-gray-50">
-                直近1年
-            </button>
-        </div>
-
-        <!-- KPIs: Population Comparison Focus -->
-        <div id="kpi-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-0 transition-opacity duration-500">
+        <!-- ========================================== -->
+        <!--  POPULATION SECTION (人口タブ)             -->
+        <!-- ========================================== -->
+        <div id="section-population" class="space-y-6">
             
-            <!-- 1. Latest Population -->
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-20 h-20 bg-green-50 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
-                <div>
-                    <span class="text-xs text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                        <i data-lucide="users" class="w-3 h-3"></i> 総人口 (最新)
-                    </span>
-                    <div class="mt-3 flex items-baseline gap-1">
-                        <span class="text-4xl font-bold text-gray-800" id="val-total">---</span>
-                        <span class="text-sm text-gray-500">人</span>
+            <!-- Intro -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
+                    <i data-lucide="activity" class="w-5 h-5 text-blue-500"></i>
+                    人口・人流モニタリング
+                </h2>
+                <p class="text-gray-500 text-sm leading-relaxed mt-1">
+                    志賀町の人口推移と人の流れ（転入・転出）を可視化しました。
+                    データの変化から復旧・復興の現状を読み解きます。
+                </p>
+            </div>
+
+            <!-- Controls: Time Range -->
+            <div class="flex justify-center md:justify-end gap-2">
+                <button data-range="all" class="pop-filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-blue-600 text-white shadow-md">
+                    全期間
+                </button>
+                <button data-range="post-quake" class="pop-filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-white text-gray-500 border border-gray-200 hover:bg-gray-50">
+                    震災後 (2024.1~)
+                </button>
+                <button data-range="1year" class="pop-filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-white text-gray-500 border border-gray-200 hover:bg-gray-50">
+                    直近1年
+                </button>
+            </div>
+
+            <!-- KPIs -->
+            <div id="pop-kpi-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-0 transition-opacity duration-500">
+                
+                <!-- 1. Latest Population -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-green-50 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
+                    <div>
+                        <span class="text-xs text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <i data-lucide="users" class="w-3 h-3"></i> 総人口 (最新)
+                        </span>
+                        <div class="mt-3 flex items-baseline gap-1">
+                            <span class="text-4xl font-bold text-gray-800" id="pop-val-total">---</span>
+                            <span class="text-sm text-gray-500">人</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-400 text-right relative z-10">
+                        最新集計データ
                     </div>
                 </div>
-                <div class="mt-2 text-xs text-gray-400 text-right relative z-10">
-                    最新集計データ
+
+                <!-- 2. vs Dec 2023 -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-blue-50 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
+                    <div>
+                        <span class="text-xs text-gray-500 font-bold uppercase tracking-wider">震災前比較 (2023.12)</span>
+                        <div class="mt-3">
+                            <div class="flex items-baseline gap-2">
+                                <span id="pop-diff-2023" class="text-3xl font-bold tracking-tight">---</span>
+                                <span class="text-sm font-medium text-gray-500">人</span>
+                            </div>
+                            <div class="mt-1 flex items-center gap-2">
+                                <span id="pop-rate-2023" class="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">---%</span>
+                                <span class="text-xs text-gray-400">(基準: <span id="pop-ref-2023">---</span>人)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. vs Dec 2015 -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-orange-50 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
+                    <div>
+                        <span class="text-xs text-gray-500 font-bold uppercase tracking-wider">長期比較 (2015.12)</span>
+                        <div class="mt-3">
+                            <div class="flex items-baseline gap-2">
+                                <span id="pop-diff-2015" class="text-3xl font-bold tracking-tight">---</span>
+                                <span class="text-sm font-medium text-gray-500">人</span>
+                            </div>
+                            <div class="mt-1 flex items-center gap-2">
+                                <span id="pop-rate-2015" class="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">---%</span>
+                                <span class="text-xs text-gray-400">(基準: <span id="pop-ref-2015">---</span>人)</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 2. vs Dec 2023 (Pre-Quake) -->
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-20 h-20 bg-blue-50 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
-                <div>
-                    <span class="text-xs text-gray-500 font-bold uppercase tracking-wider">震災前比較 (2023.12)</span>
-                    <div class="mt-3">
-                        <div class="flex items-baseline gap-2">
-                            <span id="diff-2023" class="text-3xl font-bold tracking-tight">---</span>
-                            <span class="text-sm font-medium text-gray-500">人</span>
-                        </div>
-                        <div class="mt-1 flex items-center gap-2">
-                            <span id="rate-2023" class="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">---%</span>
-                            <span class="text-xs text-gray-400">(基準: <span id="ref-2023">---</span>人)</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. vs Dec 2015 (Long Term) -->
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-20 h-20 bg-orange-50 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
-                <div>
-                    <span class="text-xs text-gray-500 font-bold uppercase tracking-wider">長期比較 (2015.12)</span>
-                    <div class="mt-3">
-                        <div class="flex items-baseline gap-2">
-                            <span id="diff-2015" class="text-3xl font-bold tracking-tight">---</span>
-                            <span class="text-sm font-medium text-gray-500">人</span>
-                        </div>
-                        <div class="mt-1 flex items-center gap-2">
-                            <span id="rate-2015" class="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">---%</span>
-                            <span class="text-xs text-gray-400">(基準: <span id="ref-2015">---</span>人)</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- Loading Indicator -->
-        <div id="loading" class="flex flex-col items-center justify-center py-20">
-            <div class="w-10 h-10 border-4 border-gray-200 border-t-[#00A756] rounded-full animate-spin"></div>
-            <p class="text-gray-400 text-sm mt-4">データを読み込んでいます...</p>
-        </div>
-
-        <!-- Error Message (Initially Hidden) -->
-        <div id="error-message" class="hidden flex-col items-center justify-center py-10 text-center">
-            <i data-lucide="alert-circle" class="w-10 h-10 text-red-400 mb-2"></i>
-            <p class="text-gray-600 font-bold">データの読み込みに失敗しました</p>
-            <p class="text-gray-400 text-sm mt-1">通信環境を確認するか、時間をおいて再読み込みしてください。</p>
-        </div>
-
-        <!-- Charts Area (Hidden until loaded) -->
-        <div id="dashboard-content" class="space-y-6 hidden">
-            
-            <!-- Chart 1: Population (2-Axis) -->
+            <!-- Chart 1: Population -->
             <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
                     <i data-lucide="users" class="w-5 h-5 text-gray-400"></i>
@@ -197,7 +196,7 @@
                 </div>
             </section>
 
-            <!-- Chart 2: Migration (Gender Breakdown) -->
+            <!-- Chart 2: Migration -->
             <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <div class="flex items-center gap-2">
@@ -214,58 +213,324 @@
                     </div>
                 </div>
             </section>
-
-            <footer class="text-center text-gray-400 text-xs py-8">
-                <p class="mb-2">© 2024 Kaeru Shika Dashboard Prototype</p>
-                <div class="flex justify-center gap-4">
-                    <span>Powered by Chart.js</span>
-                    <span>Data: shika_population.csv</span>
-                </div>
-            </footer>
         </div>
+
+
+        <!-- ========================================== -->
+        <!--  TOURISM SECTION (観光タブ)                -->
+        <!-- ========================================== -->
+        <div id="section-tourism" class="space-y-6 hidden">
+            
+            <!-- Intro -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-5 h-5 text-[#0088CE]"></i>
+                    観光客数モニタリング
+                </h2>
+                <p class="text-gray-500 text-sm leading-relaxed mt-1">
+                    志賀町への観光来訪者数の推移を可視化しています。震災前・コロナ禍前との比較を通じて、観光復興の進捗を確認できます。
+                </p>
+            </div>
+
+            <!-- KPIs -->
+            <div id="tour-kpi-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-0 transition-opacity duration-500">
+                <!-- 1. Latest -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-12 -mt-12"></div>
+                    <div>
+                        <span class="text-xs text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <i data-lucide="calendar" class="w-3 h-3"></i> 最新月 観光客数
+                        </span>
+                        <div class="mt-2">
+                            <span class="text-4xl font-bold text-gray-800" id="tour-kpi-latest-val">---</span>
+                            <span class="text-sm text-gray-500">人</span>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2 text-xs">
+                            <div class="px-2 py-1 rounded bg-gray-50 text-gray-600 border border-gray-100">
+                                前月比: <span id="tour-kpi-mom" class="font-bold">---</span>
+                            </div>
+                            <div class="px-2 py-1 rounded bg-gray-50 text-gray-600 border border-gray-100">
+                                前年同月比: <span id="tour-kpi-yoy" class="font-bold">---</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-[10px] text-gray-400 text-right relative z-10">
+                        <span id="tour-kpi-latest-date">---</span> 時点
+                    </div>
+                </div>
+
+                <!-- 2. vs 2023 -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-green-50 rounded-bl-full -mr-10 -mt-10"></div>
+                    <div>
+                        <span class="text-xs text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <i data-lucide="activity" class="w-3 h-3"></i> 震災前水準 (2023同月比)
+                        </span>
+                        <div class="mt-3">
+                            <div class="flex items-baseline gap-2">
+                                <span id="tour-kpi-2023-rate" class="text-3xl font-bold tracking-tight">---%</span>
+                                <span class="text-xs text-gray-400">回復率</span>
+                            </div>
+                            <div class="mt-1 text-sm text-gray-500">
+                                <span id="tour-kpi-2023-diff" class="font-bold">---</span> 人
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. vs 2019 -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-orange-50 rounded-bl-full -mr-10 -mt-10"></div>
+                    <div>
+                        <span class="text-xs text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <i data-lucide="history" class="w-3 h-3"></i> コロナ前水準 (2019同月比)
+                        </span>
+                        <div class="mt-3">
+                            <div class="flex items-baseline gap-2">
+                                <span id="tour-kpi-2019-rate" class="text-3xl font-bold tracking-tight">---%</span>
+                                <span class="text-xs text-gray-400">回復率</span>
+                            </div>
+                            <div class="mt-1 text-sm text-gray-500">
+                                <span id="tour-kpi-2019-diff" class="font-bold">---</span> 人
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart 1: Time Series (Trend) -->
+            <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-center gap-2">
+                        <div class="bg-blue-100 p-2 rounded-lg text-blue-600">
+                            <i data-lucide="trending-up" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-gray-700">長期時系列推移</h3>
+                            <p class="text-xs text-gray-400">全期間のトレンドと震災（2024.1）の影響</p>
+                        </div>
+                    </div>
+                    <div class="flex bg-gray-100 p-1 rounded-lg self-start md:self-auto">
+                        <button class="tour-filter-btn px-3 py-1.5 rounded-md text-xs font-medium transition-all bg-white text-blue-600 shadow-sm" data-filter="all">
+                            全期間
+                        </button>
+                        <button class="tour-filter-btn px-3 py-1.5 rounded-md text-xs font-medium transition-all text-gray-500 hover:text-gray-700" data-filter="post-quake">
+                            震災後
+                        </button>
+                        <button class="tour-filter-btn px-3 py-1.5 rounded-md text-xs font-medium transition-all text-gray-500 hover:text-gray-700" data-filter="recent">
+                            直近1年
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4 md:p-6">
+                    <div class="chart-container">
+                        <canvas id="timeSeriesChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chart 2: Seasonality -->
+            <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                    <div class="bg-green-100 p-2 rounded-lg text-green-600">
+                        <i data-lucide="calendar-days" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-700">月別推移（年度比較）</h3>
+                        <p class="text-xs text-gray-400">各年の季節トレンドを重ね合わせて比較</p>
+                    </div>
+                </div>
+                <div class="p-4 md:p-6">
+                    <div class="chart-container">
+                        <canvas id="seasonChart"></canvas>
+                    </div>
+                    <div class="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-gray-500">
+                        <div class="flex items-center gap-1">
+                            <span class="w-3 h-3 rounded-full bg-[#005c8f]"></span>
+                            <span>最新年 (濃い青)</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="w-3 h-3 rounded-full bg-[#93c5fd]"></span>
+                            <span>過去の年 (薄い青)</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="w-8 h-0.5 border-t-2 border-dashed border-gray-400"></span>
+                            <span>2019年 (コロナ前基準)</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chart 3: Yearly Bar -->
+            <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                    <div class="bg-orange-100 p-2 rounded-lg text-orange-600">
+                        <i data-lucide="bar-chart-big" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-700">年別 観光客総数</h3>
+                        <p class="text-xs text-gray-400">年ごとの合計人数の推移</p>
+                    </div>
+                </div>
+                <div class="p-4 md:p-6">
+                    <div class="chart-container-sm">
+                        <canvas id="yearlyBarChart"></canvas>
+                    </div>
+                    <p class="text-[10px] text-gray-400 text-right mt-2">※最新年は集計時点までの合計値です</p>
+                </div>
+            </section>
+        </div>
+
+
+        <!-- Loading / Error -->
+        <div id="loading" class="flex flex-col items-center justify-center py-20 hidden">
+            <div class="w-10 h-10 border-4 border-gray-200 border-t-[#0088CE] rounded-full animate-spin"></div>
+            <p class="text-gray-400 text-sm mt-4">データを読み込んでいます...</p>
+        </div>
+        <div id="error-message" class="hidden flex-col items-center justify-center py-10 text-center">
+            <p class="text-red-400 font-bold mb-2">データの読み込みに失敗しました</p>
+            <p class="text-xs text-gray-400">通信環境やデータファイルを確認してください。</p>
+        </div>
+
+        <footer id="main-footer" class="text-center text-gray-400 text-xs py-8 border-t border-gray-100 mt-8">
+            <!-- Footer content is updated via JS -->
+        </footer>
     </main>
 
     <script>
-        // --- 設定・定数 ---
+        // --- 定数 ---
         const COLORS = {
             blue: '#0088CE',
             green: '#00A756',
             orange: '#F39800',
             red: '#EF4444',
-            maleBlue: '#1e40af', // 濃い青
-            femaleBlue: '#60a5fa', // 薄い青
-            maleOrange: '#ea580c', // 濃いオレンジ
-            femaleOrange: '#fb923c', // 薄いオレンジ
-            netPositive: 'rgba(134, 239, 172, 0.4)', // #86EFAC
-            netNegative: 'rgba(252, 165, 165, 0.4)', // #FCA5A5
-            bgArea: 'rgba(0, 167, 86, 0.05)'
+            maleBlue: '#1e40af',
+            femaleBlue: '#60a5fa',
+            maleOrange: '#ea580c',
+            femaleOrange: '#fb923c',
+            netPositive: 'rgba(134, 239, 172, 0.4)',
+            netNegative: 'rgba(252, 165, 165, 0.4)',
+            bgArea: 'rgba(0, 167, 86, 0.05)',
+            quakeRed: '#EF4444',
+            baseBlue: { r: 0, g: 136, b: 206 },
+            color2019: '#64748b'
         };
 
-        // RAW_DATA は削除し、fetch で取得します
+        // --- 状態管理 ---
+        let currentTab = 'population';
+        let popData = [];
+        let tourData = [];
+        
+        let chartInstances = {
+            pop: null,
+            migration: null,
+            ts: null,
+            season: null,
+            yearly: null
+        };
 
-        // グローバル変数
-        let allData = [];
-        let chartPop = null;
-        let chartMigration = null;
+        // --- タブ切り替え ---
+        function switchTab(tabId) {
+            currentTab = tabId;
+            
+            // タブスタイルの更新
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                if(btn.dataset.tab === tabId) {
+                    btn.classList.remove('inactive');
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                    btn.classList.add('inactive');
+                }
+            });
 
-        // --- データ処理 ---
-        function parseData(rawData) {
+            // コンテンツの表示切替
+            if (tabId === 'population') {
+                document.getElementById('section-population').classList.remove('hidden');
+                document.getElementById('section-tourism').classList.add('hidden');
+                updatePopDashboard();
+            } else if (tabId === 'tourism') {
+                document.getElementById('section-population').classList.add('hidden');
+                document.getElementById('section-tourism').classList.remove('hidden');
+                updateTourDashboard();
+            }
+
+            // フッター更新
+            updateFooter(tabId);
+        }
+
+        // --- フッター更新 ---
+        function updateFooter(tabId) {
+            const footer = document.getElementById('main-footer');
+            if (tabId === 'population') {
+                footer.innerHTML = `
+                    <p class="mb-2">© 2026 かえる、志賀町 Dashboard</p>
+                    <div class="flex flex-col items-center gap-1 text-[10px] md:text-xs">
+                        <span>データ出典：<a href="https://www.town.shika.lg.jp/s/jyuumin/shika_town_pop/shika_population.html" target="_blank" class="underline hover:text-gray-600 transition-colors">志賀町の人口(住民基本台帳ベース)</a></span>
+                    </div>
+                `;
+            } else if (tabId === 'tourism') {
+                footer.innerHTML = `
+                    <p class="mb-2">© 2026 かえる、志賀町 Dashboard</p>
+                    <div class="flex flex-col items-center gap-1 text-[10px] md:text-xs">
+                        <span>データ出典：<a href="https://www.nihon-kankou.or.jp/home/jigyou/research/d-toukei/" target="_blank" class="underline hover:text-gray-600 transition-colors">デジタル観光統計オープンデータ(GPSベース)</a></span>
+                    </div>
+                `;
+            }
+        }
+
+        // --- データロード ---
+        async function initDashboard() {
+            document.getElementById('loading').classList.remove('hidden');
+            
+            try {
+                // 並列でデータ取得
+                const [popRes, tourRes] = await Promise.allSettled([
+                    fetch('./shika_population.csv'),
+                    fetch('./shika_kanko_gps.csv')
+                ]);
+
+                // 人口データ処理
+                if (popRes.status === 'fulfilled' && popRes.value.ok) {
+                    const text = await popRes.value.text();
+                    popData = parsePopData(text);
+                    document.getElementById('pop-kpi-container').classList.remove('opacity-0');
+                } else {
+                    console.error('Population data failed');
+                }
+
+                // 観光データ処理
+                if (tourRes.status === 'fulfilled' && tourRes.value.ok) {
+                    const text = await tourRes.value.text();
+                    tourData = parseTourData(text);
+                    document.getElementById('tour-kpi-container').classList.remove('opacity-0');
+                } else {
+                    console.error('Tourism data failed');
+                }
+
+                // 初期表示（人口タブ）
+                switchTab('population');
+
+            } catch (err) {
+                console.error('Fatal error:', err);
+                document.getElementById('error-message').classList.remove('hidden');
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+                lucide.createIcons();
+            }
+        }
+
+        // --- Parsers ---
+        function parsePopData(rawData) {
             const lines = rawData.trim().split('\n');
             const dataMap = new Map();
 
             lines.forEach((line, index) => {
-                if (index === 0) return; // ヘッダー
+                if (index === 0 || !line.trim()) return;
                 
-                // 行が空の場合はスキップ
-                if (!line.trim()) return;
-
                 let parts;
-                // CSV(カンマ区切り)か、TSV/SSV(空白区切り)かを簡易判定
-                if (line.indexOf(',') !== -1) {
-                    parts = line.trim().split(',');
-                } else {
-                    parts = line.trim().split(/\s+/);
-                }
+                if (line.indexOf(',') !== -1) parts = line.trim().split(',');
+                else parts = line.trim().split(/\s+/);
 
                 if (parts.length < 5) return;
 
@@ -275,13 +540,8 @@
                 const month = yearMonthStr.substring(4, 6);
                 const formattedDate = `${year}-${month}`;
 
-                // Values at end
                 const len = parts.length;
-                const parseNum = (str) => {
-                    if (!str) return 0;
-                    return parseInt(str.trim().replace(/,/g, ''), 10) || 0;
-                };
-
+                const parseNum = (str) => parseInt(str.trim().replace(/,/g, ''), 10) || 0;
                 const popEnd = parseNum(parts[len - 2]);
                 const moveOut = parseNum(parts[len - 3]);
                 const moveIn = parseNum(parts[len - 4]);
@@ -290,22 +550,15 @@
                     dataMap.set(formattedDate, {
                         date: formattedDate,
                         displayDate: `${year}年${month}月`,
-                        totalPop: 0,
-                        malePop: 0,
-                        femalePop: 0,
-                        moveIn: 0,
-                        moveOut: 0,
-                        netMigration: 0,
-                        // 男女別転入出初期化
-                        maleMoveIn: 0,
-                        femaleMoveIn: 0,
-                        maleMoveOut: 0,
-                        femaleMoveOut: 0,
+                        year: parseInt(year),
+                        month: parseInt(month),
+                        totalPop: 0, malePop: 0, femalePop: 0,
+                        moveIn: 0, moveOut: 0, netMigration: 0,
+                        maleMoveIn: 0, femaleMoveIn: 0, maleMoveOut: 0, femaleMoveOut: 0
                     });
                 }
 
                 const entry = dataMap.get(formattedDate);
-
                 if (gender === '男') {
                     entry.malePop = popEnd;
                     entry.maleMoveIn = moveIn;
@@ -319,369 +572,355 @@
                 entry.totalPop += popEnd;
                 entry.moveIn += moveIn;
                 entry.moveOut += moveOut;
-                
                 entry.netMigration = entry.moveIn - entry.moveOut;
             });
-
             return Array.from(dataMap.values()).sort((a, b) => a.date.localeCompare(b.date));
         }
 
-        // --- 画面描画 ---
-        function updateDashboard(rangeType) {
+        function parseTourData(csvText) {
+            const lines = csvText.trim().split('\n');
+            const result = [];
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const parts = line.split(',');
+                if (parts.length < 3) continue;
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]);
+                const valStr = parts[parts.length - 1];
+                const val = parseInt(valStr.replace(/,/g, ''));
+                if (!isNaN(year) && !isNaN(month) && !isNaN(val)) {
+                    result.push({
+                        year: year, month: month, value: val,
+                        dateStr: `${year}-${month.toString().padStart(2, '0')}`
+                    });
+                }
+            }
+            return result.sort((a, b) => (a.year - b.year) || (a.month - b.month));
+        }
+
+        // --- Population Updates ---
+        function updatePopDashboard(rangeType = 'all') {
+            if (popData.length === 0) return;
+
             // フィルタリング
             let filtered = [];
-            if (rangeType === 'post-quake') {
-                filtered = allData.filter(d => d.date >= '2024-01');
-            } else if (rangeType === '1year') {
-                filtered = allData.slice(-12);
-            } else {
-                filtered = [...allData];
-            }
+            if (rangeType === 'post-quake') filtered = popData.filter(d => d.date >= '2024-01');
+            else if (rangeType === '1year') filtered = popData.slice(-12);
+            else filtered = [...popData];
 
             if (filtered.length === 0) return;
 
-            // --- KPI計算 (総人口比較) ---
-            // 最新データ (フィルタリング結果の最後)
             const latest = filtered[filtered.length - 1];
             
-            // 比較対象データ (全期間データから探索)
-            const preQuake = allData.find(d => d.date === '2023-12');
-            const tenYear = allData.find(d => d.date === '2015-12');
+            // Header
+            document.getElementById('header-date').textContent = `${latest.displayDate} 現在`;
+            document.getElementById('header-date-mobile').textContent = `${latest.displayDate} 現在`;
+            document.getElementById('pop-val-total').textContent = latest.totalPop.toLocaleString();
 
-            // 1. 最新更新
-            // ヘッダー（デスクトップ）
-            const headerDate = document.getElementById('latest-date');
-            if (headerDate) headerDate.textContent = `${latest.displayDate} 現在`;
-            
-            // モバイル用（追加した要素）
-            const mobileDate = document.getElementById('latest-date-mobile');
-            if (mobileDate) mobileDate.textContent = `${latest.displayDate} 現在`;
-
-            document.getElementById('val-total').textContent = latest.totalPop.toLocaleString();
-
-            // 2. 震災前比較 (2023.12)
+            // KPI: vs 2023.12
+            const preQuake = popData.find(d => d.date === '2023-12');
             if (preQuake) {
-                document.getElementById('ref-2023').textContent = preQuake.totalPop.toLocaleString();
-                
                 const diff = latest.totalPop - preQuake.totalPop;
-                const sign = diff > 0 ? '+' : '';
-                document.getElementById('diff-2023').textContent = `${sign}${diff.toLocaleString()}`;
-                document.getElementById('diff-2023').className = `text-3xl font-bold tracking-tight ${diff >= 0 ? 'text-green-600' : 'text-red-500'}`;
-
                 const rate = (diff / preQuake.totalPop) * 100;
-                document.getElementById('rate-2023').textContent = `${sign}${rate.toFixed(1)}%`;
-            }
-
-            // 3. 長期比較 (2015.12)
-            if (tenYear) {
-                document.getElementById('ref-2015').textContent = tenYear.totalPop.toLocaleString();
-                
-                const diff = latest.totalPop - tenYear.totalPop;
                 const sign = diff > 0 ? '+' : '';
-                document.getElementById('diff-2015').textContent = `${sign}${diff.toLocaleString()}`;
-                document.getElementById('diff-2015').className = `text-3xl font-bold tracking-tight ${diff >= 0 ? 'text-green-600' : 'text-red-500'}`;
-
-                const rate = (diff / tenYear.totalPop) * 100;
-                document.getElementById('rate-2015').textContent = `${sign}${rate.toFixed(1)}%`;
+                document.getElementById('pop-ref-2023').textContent = preQuake.totalPop.toLocaleString();
+                document.getElementById('pop-diff-2023').textContent = `${sign}${diff.toLocaleString()}`;
+                document.getElementById('pop-diff-2023').className = `text-3xl font-bold tracking-tight ${diff >= 0 ? 'text-green-600' : 'text-red-500'}`;
+                document.getElementById('pop-rate-2023').textContent = `${sign}${rate.toFixed(1)}%`;
             }
 
-            // --- チャート更新 ---
-            updatePopChart(filtered);
-            updateMigrationChart(filtered);
+            // KPI: vs 2015.12
+            const tenYear = popData.find(d => d.date === '2015-12');
+            if (tenYear) {
+                const diff = latest.totalPop - tenYear.totalPop;
+                const rate = (diff / tenYear.totalPop) * 100;
+                const sign = diff > 0 ? '+' : '';
+                document.getElementById('pop-ref-2015').textContent = tenYear.totalPop.toLocaleString();
+                document.getElementById('pop-diff-2015').textContent = `${sign}${diff.toLocaleString()}`;
+                document.getElementById('pop-diff-2015').className = `text-3xl font-bold tracking-tight ${diff >= 0 ? 'text-green-600' : 'text-red-500'}`;
+                document.getElementById('pop-rate-2015').textContent = `${sign}${rate.toFixed(1)}%`;
+            }
+
+            renderPopChart(filtered);
+            renderMigrationChart(filtered);
         }
 
-        // --- Chart.js 設定共通 ---
-        const commonOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            },
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        usePointStyle: true,
-                        font: { family: "'Noto Sans JP', sans-serif", size: 12 }
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    titleColor: '#374151',
-                    bodyColor: '#4B5563',
-                    borderColor: '#E5E7EB',
-                    borderWidth: 1,
-                    padding: 10,
-                    titleFont: { family: "'Noto Sans JP', sans-serif", size: 13, weight: 'bold' },
-                    bodyFont: { family: "'Noto Sans JP', sans-serif", size: 12 },
-                    displayColors: true,
-                    boxPadding: 4
-                },
-                annotation: {
-                    annotations: {
-                        quakeLine: {
-                            type: 'line',
-                            scaleID: 'x',
-                            value: '2024年01月', // ラベルと一致させる
-                            borderColor: COLORS.red,
-                            borderWidth: 2,
-                            borderDash: [4, 4],
-                            label: {
-                                display: true,
-                                content: '震災',
-                                position: 'start',
-                                backgroundColor: COLORS.red,
-                                color: 'white',
-                                font: { size: 10 },
-                                yAdjust: 10
-                            }
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: {
-                        font: { size: 10 },
-                        maxTicksLimit: 12,
-                        color: '#9CA3AF'
-                    }
-                },
-                y: {
-                    border: { display: false },
-                    grid: { color: '#F3F4F6' },
-                    ticks: {
-                        font: { size: 10 },
-                        color: '#9CA3AF'
-                    }
-                }
-            }
-        };
+        // --- Tourism Updates ---
+        function updateTourDashboard(rangeType = 'all') {
+            if (tourData.length === 0) return;
 
-        function updatePopChart(data) {
-            const ctx = document.getElementById('popChart').getContext('2d');
-            const labels = data.map(d => d.displayDate);
+            const latest = tourData[tourData.length - 1];
+            const latestYear = latest.year;
+            const latestMonth = latest.month;
 
-            // 震災ラインを表示するか判定
-            const showAnnotation = data.some(d => d.displayDate === '2024年01月');
-            const options = JSON.parse(JSON.stringify(commonOptions)); // Deep copy
+            // Header
+            document.getElementById('header-date').textContent = `${latestYear}年${latestMonth}月 現在`;
+            document.getElementById('header-date-mobile').textContent = `${latestYear}年${latestMonth}月 現在`;
             
-            // 2軸設定の追加
-            options.scales.y = {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                grid: { color: '#F3F4F6' },
-                title: { display: true, text: '総人口', color: COLORS.green }
-            };
-            options.scales.y1 = {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                grid: { drawOnChartArea: false }, // グリッド重複防止
-                title: { display: true, text: '男女別', color: COLORS.blue }
-            };
+            // KPI: Latest
+            const valCurrent = latest.value;
+            document.getElementById('tour-kpi-latest-val').textContent = valCurrent.toLocaleString();
+            document.getElementById('tour-kpi-latest-date').textContent = `${latestYear}.${latestMonth}`;
 
-            if (!showAnnotation) options.plugins.annotation = {};
+            // KPI: MoM & YoY
+            const prevMonthData = tourData.find(d => {
+                if (latestMonth === 1) return d.year === latestYear - 1 && d.month === 12;
+                return d.year === latestYear && d.month === latestMonth - 1;
+            });
+            if (prevMonthData) renderDiff('tour-kpi-mom', valCurrent, prevMonthData.value);
+            const prevYearData = tourData.find(d => d.year === latestYear - 1 && d.month === latestMonth);
+            if (prevYearData) renderDiff('tour-kpi-yoy', valCurrent, prevYearData.value);
 
-            if (chartPop) {
-                chartPop.destroy();
+            // KPI: vs 2023 & 2019
+            const preQuakeData = tourData.find(d => d.year === 2023 && d.month === latestMonth);
+            updateTourKpi('tour-kpi-2023', valCurrent, preQuakeData ? preQuakeData.value : null);
+            const preCovidData = tourData.find(d => d.year === 2019 && d.month === latestMonth);
+            updateTourKpi('tour-kpi-2019', valCurrent, preCovidData ? preCovidData.value : null);
+
+            // Charts
+            renderTimeSeriesChart(rangeType);
+            renderSeasonChart();
+            renderYearlyBarChart();
+        }
+
+        // --- Helpers ---
+        function renderDiff(elemId, current, past) {
+            const diff = current - past;
+            const rate = ((diff / past) * 100).toFixed(1);
+            const sign = diff > 0 ? '+' : '';
+            const colorClass = diff >= 0 ? 'text-green-600' : 'text-red-500';
+            document.getElementById(elemId).innerHTML = `<span class="${colorClass}">${sign}${rate}%</span>`;
+        }
+
+        function updateTourKpi(idPrefix, current, base) {
+            if (base) {
+                const diff = current - base;
+                const rate = (current / base) * 100;
+                const sign = diff > 0 ? '+' : '';
+                document.getElementById(`${idPrefix}-rate`).textContent = `${rate.toFixed(1)}%`;
+                document.getElementById(`${idPrefix}-rate`).className = `text-3xl font-bold tracking-tight ${rate >= 100 ? 'text-green-600' : 'text-red-500'}`;
+                document.getElementById(`${idPrefix}-diff`).textContent = `${sign}${diff.toLocaleString()}`;
+            } else {
+                document.getElementById(`${idPrefix}-rate`).textContent = '-';
+                document.getElementById(`${idPrefix}-diff`).textContent = '-';
             }
+        }
 
-            chartPop = new Chart(ctx, {
+        // ==========================================
+        //  CHART RENDERERS
+        // ==========================================
+
+        // --- Population Charts ---
+        function renderPopChart(data) {
+            const ctx = document.getElementById('popChart').getContext('2d');
+            if (chartInstances.pop) chartInstances.pop.destroy();
+            
+            const labels = data.map(d => d.displayDate);
+            const showAnnotation = data.some(d => d.date === '2024-01');
+
+            chartInstances.pop = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [
-                        {
-                            label: '総人口 (左軸)',
-                            data: data.map(d => d.totalPop),
-                            borderColor: COLORS.green,
-                            backgroundColor: COLORS.bgArea,
-                            borderWidth: 3,
-                            pointRadius: 0,
-                            pointHoverRadius: 6,
-                            fill: true,
-                            tension: 0.3,
-                            yAxisID: 'y'
-                        },
-                        {
-                            label: '男性 (右軸)',
-                            data: data.map(d => d.malePop),
-                            borderColor: COLORS.blue,
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            fill: false,
-                            tension: 0.3,
-                            yAxisID: 'y1'
-                        },
-                        {
-                            label: '女性 (右軸)',
-                            data: data.map(d => d.femalePop),
-                            borderColor: COLORS.orange,
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            fill: false,
-                            tension: 0.3,
-                            yAxisID: 'y1'
-                        }
+                        { label: '総人口 (左)', data: data.map(d => d.totalPop), borderColor: COLORS.green, backgroundColor: COLORS.bgArea, borderWidth: 3, pointRadius: 0, pointHoverRadius: 6, fill: true, tension: 0.3, yAxisID: 'y' },
+                        { label: '男性 (右)', data: data.map(d => d.malePop), borderColor: COLORS.blue, borderWidth: 2, borderDash: [5, 5], pointRadius: 0, pointHoverRadius: 4, fill: false, tension: 0.3, yAxisID: 'y1' },
+                        { label: '女性 (右)', data: data.map(d => d.femalePop), borderColor: COLORS.orange, borderWidth: 2, borderDash: [5, 5], pointRadius: 0, pointHoverRadius: 4, fill: false, tension: 0.3, yAxisID: 'y1' }
                     ]
                 },
-                options: options
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, font: { family: "'Noto Sans JP'", size: 12 } } },
+                        datalabels: { display: false },
+                        annotation: showAnnotation ? {
+                            annotations: {
+                                quakeLine: { type: 'line', scaleID: 'x', value: '2024年01月', borderColor: COLORS.red, borderWidth: 2, borderDash: [4, 4], label: { display: true, content: '震災', position: 'start', backgroundColor: COLORS.red, color: 'white', font: { size: 10 }, yAdjust: 10 } }
+                            }
+                        } : {}
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 12, color: '#9CA3AF' } },
+                        y: { type: 'linear', position: 'left', grid: { color: '#F3F4F6' }, title: { display: true, text: '総人口', color: COLORS.green } },
+                        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '男女別', color: COLORS.blue } }
+                    }
+                }
             });
         }
 
-        function updateMigrationChart(data) {
+        function renderMigrationChart(data) {
             const ctx = document.getElementById('migrationChart').getContext('2d');
+            if (chartInstances.migration) chartInstances.migration.destroy();
+
             const labels = data.map(d => d.displayDate);
+            const showAnnotation = data.some(d => d.date === '2024-01');
 
-            const showAnnotation = data.some(d => d.displayDate === '2024年01月');
-            const options = JSON.parse(JSON.stringify(commonOptions));
-            if (!showAnnotation) options.plugins.annotation = {};
-
-            if (chartMigration) {
-                chartMigration.destroy();
-            }
-
-            chartMigration = new Chart(ctx, {
+            chartInstances.migration = new Chart(ctx, {
                 data: {
                     labels: labels,
                     datasets: [
-                        {
-                            type: 'bar',
-                            label: '純移動',
-                            data: data.map(d => d.netMigration),
-                            backgroundColor: data.map(d => d.netMigration >= 0 ? COLORS.netPositive : COLORS.netNegative),
-                            borderColor: 'transparent',
-                            barPercentage: 0.6,
-                            order: 3
-                        },
-                        // 男性 転入
-                        {
-                            type: 'line',
-                            label: '男性転入',
-                            data: data.map(d => d.maleMoveIn),
-                            borderColor: COLORS.maleBlue,
-                            backgroundColor: COLORS.maleBlue,
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            tension: 0.3,
-                            order: 1
-                        },
-                        // 女性 転入
-                        {
-                            type: 'line',
-                            label: '女性転入',
-                            data: data.map(d => d.femaleMoveIn),
-                            borderColor: COLORS.femaleBlue,
-                            backgroundColor: COLORS.femaleBlue,
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            tension: 0.3,
-                            order: 1
-                        },
-                         // 男性 転出
-                         {
-                            type: 'line',
-                            label: '男性転出',
-                            data: data.map(d => d.maleMoveOut),
-                            borderColor: COLORS.maleOrange,
-                            backgroundColor: COLORS.maleOrange,
-                            borderWidth: 2,
-                            borderDash: [2, 2], // 転出は点線気味に
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            tension: 0.3,
-                            order: 2
-                        },
-                        // 女性 転出
-                        {
-                            type: 'line',
-                            label: '女性転出',
-                            data: data.map(d => d.femaleMoveOut),
-                            borderColor: COLORS.femaleOrange,
-                            backgroundColor: COLORS.femaleOrange,
-                            borderWidth: 2,
-                            borderDash: [2, 2], // 転出は点線気味に
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                            tension: 0.3,
-                            order: 2
-                        }
+                        { type: 'bar', label: '純移動', data: data.map(d => d.netMigration), backgroundColor: data.map(d => d.netMigration >= 0 ? COLORS.netPositive : COLORS.netNegative), borderColor: 'transparent', barPercentage: 0.6, order: 3 },
+                        { type: 'line', label: '男性転入', data: data.map(d => d.maleMoveIn), borderColor: COLORS.maleBlue, backgroundColor: COLORS.maleBlue, borderWidth: 2, pointRadius: 0, tension: 0.3, order: 1 },
+                        { type: 'line', label: '女性転入', data: data.map(d => d.femaleMoveIn), borderColor: COLORS.femaleBlue, backgroundColor: COLORS.femaleBlue, borderWidth: 2, pointRadius: 0, tension: 0.3, order: 1 },
+                        { type: 'line', label: '男性転出', data: data.map(d => d.maleMoveOut), borderColor: COLORS.maleOrange, backgroundColor: COLORS.maleOrange, borderWidth: 2, borderDash: [2, 2], pointRadius: 0, tension: 0.3, order: 2 },
+                        { type: 'line', label: '女性転出', data: data.map(d => d.femaleMoveOut), borderColor: COLORS.femaleOrange, backgroundColor: COLORS.femaleOrange, borderWidth: 2, borderDash: [2, 2], pointRadius: 0, tension: 0.3, order: 2 }
                     ]
                 },
-                options: options
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, font: { family: "'Noto Sans JP'", size: 12 } } },
+                        datalabels: { display: false },
+                        annotation: showAnnotation ? {
+                            annotations: { quakeLine: { type: 'line', scaleID: 'x', value: '2024年01月', borderColor: COLORS.red, borderWidth: 2, borderDash: [4, 4] } }
+                        } : {}
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 12, color: '#9CA3AF' } },
+                        y: { grid: { color: '#F3F4F6' }, ticks: { color: '#9CA3AF' } }
+                    }
+                }
             });
         }
 
-        // --- 初期化 ---
-        window.addEventListener('DOMContentLoaded', () => {
-            // CSV Fetch
-            fetch('./shika_population.csv')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.text();
-                })
-                .then(text => {
-                    allData = parseData(text);
-                    
-                    // ローディング消去
-                    document.getElementById('loading').classList.add('hidden');
-                    
-                    // データが空でなければコンテンツ表示
-                    if (allData.length > 0) {
-                        const content = document.getElementById('dashboard-content');
-                        content.classList.remove('hidden');
-                        
-                        const kpi = document.getElementById('kpi-container');
-                        kpi.classList.remove('opacity-0');
+        // --- Tourism Charts ---
+        function renderTimeSeriesChart(filterType) {
+            const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+            if (chartInstances.ts) chartInstances.ts.destroy();
 
-                        // 初期描画
-                        updateDashboard('all');
-                        
-                        // アイコン
-                        if (window.lucide) lucide.createIcons();
-                    } else {
-                        // データパース失敗時などはエラー扱い
-                        throw new Error('Data parsing resulted in empty dataset');
-                    }
-                })
-                .catch(error => {
-                    console.error('Data loading failed:', error);
-                    document.getElementById('loading').classList.add('hidden');
-                    const errorDiv = document.getElementById('error-message');
-                    errorDiv.classList.remove('hidden');
-                    errorDiv.classList.add('flex');
-                    if (window.lucide) lucide.createIcons();
+            let filtered = [];
+            if (filterType === 'post-quake') filtered = tourData.filter(d => (d.year === 2024 && d.month >= 1) || d.year > 2024);
+            else if (filterType === 'recent') filtered = tourData.slice(-12);
+            else filtered = tourData;
+
+            if (filtered.length === 0 && tourData.length > 0) filtered = tourData;
+
+            const hasQuake = filtered.some(d => d.year === 2024 && d.month === 1);
+
+            chartInstances.ts = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: filtered.map(d => `${d.year}/${d.month}`),
+                    datasets: [{ label: '観光客数', data: filtered.map(d => d.value), borderColor: COLORS.blue, backgroundColor: 'rgba(0, 136, 206, 0.1)', borderWidth: 2, fill: true, tension: 0.1, pointRadius: 3 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }, datalabels: { display: false },
+                        tooltip: { mode: 'index', intersect: false },
+                        annotation: {
+                            annotations: {
+                                quakeLine: {
+                                    type: 'line', mode: 'vertical', scaleID: 'x', value: '2024/1', borderColor: COLORS.quakeRed, borderWidth: 2, borderDash: [5, 5], display: hasQuake,
+                                    label: { content: '震災発生', display: true, position: 'start', backgroundColor: COLORS.quakeRed, color: 'white', font: { size: 10 } }
+                                }
+                            }
+                        }
+                    },
+                    scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 12, color: '#6B7280' } }, y: { beginAtZero: true, grid: { color: '#F3F4F6' } } }
+                }
+            });
+        }
+
+        function renderSeasonChart() {
+            const ctx = document.getElementById('seasonChart').getContext('2d');
+            if (chartInstances.season) chartInstances.season.destroy();
+
+            const yearsMap = {};
+            tourData.forEach(d => { if (!yearsMap[d.year]) yearsMap[d.year] = new Array(12).fill(null); yearsMap[d.year][d.month - 1] = d.value; });
+            const years = Object.keys(yearsMap).map(Number).sort((a, b) => a - b);
+            const latestYear = years[years.length - 1];
+
+            const datasets = years.map(year => {
+                const isLatest = (year === latestYear);
+                const is2019 = (year === 2019);
+                let borderColor, borderWidth, borderDash;
+
+                if (is2019) {
+                    borderColor = COLORS.color2019; borderWidth = 2; borderDash = [5, 5];
+                } else {
+                    borderDash = [];
+                    const index = years.indexOf(year);
+                    const intensity = 0.2 + (0.8 * (index / (years.length - 1 || 1)));
+                    const {r,g,b} = COLORS.baseBlue;
+                    borderColor = isLatest ? `rgba(${r},${g},${b},1)` : `rgba(${r},${g},${b},${intensity})`;
+                    borderWidth = isLatest ? 4 : 2;
+                }
+                return { label: `${year}年`, data: yearsMap[year], borderColor, backgroundColor: 'transparent', borderWidth, borderDash, pointRadius: isLatest ? 4 : (is2019?3:0), pointHoverRadius: 6, tension: 0.3 };
+            });
+
+            chartInstances.season = new Chart(ctx, {
+                type: 'line',
+                data: { labels: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'], datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } }, datalabels: { display: false } },
+                    scales: { x: { grid: { display: false }, ticks: { color: '#6B7280' } }, y: { beginAtZero: true, grid: { color: '#F3F4F6' } } }
+                }
+            });
+        }
+
+        function renderYearlyBarChart() {
+            const ctx = document.getElementById('yearlyBarChart').getContext('2d');
+            if (chartInstances.yearly) chartInstances.yearly.destroy();
+
+            const yearlyTotal = {};
+            tourData.forEach(d => { if (!yearsMap[d.year]) yearlyTotal[d.year] = 0; yearlyTotal[d.year] += d.value; });
+            const years = Object.keys(yearlyTotal).map(Number).sort((a, b) => a - b);
+            const totals = years.map(y => yearlyTotal[y]);
+            const latestYear = years[years.length - 1];
+
+            const backgroundColors = years.map(year => {
+                if (year === 2019) return COLORS.color2019;
+                const index = years.indexOf(year);
+                const intensity = 0.3 + (0.7 * (index / (years.length - 1 || 1)));
+                const {r,g,b} = COLORS.baseBlue;
+                return `rgba(${r},${g},${b},${intensity})`;
+            });
+
+            chartInstances.yearly = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: years.map(y => y + '年'), datasets: [{ label: '年間合計', data: totals, backgroundColor: backgroundColors, borderRadius: 4 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } },
+                    plugins: { legend: { display: false }, datalabels: { display: true, align: 'end', anchor: 'end', color: '#4B5563', font: { weight: 'bold', size: 11 }, formatter: v => v.toLocaleString() } },
+                    scales: { x: { grid: { display: false }, ticks: { color: '#6B7280' } }, y: { beginAtZero: true, grid: { color: '#F3F4F6' } } }
+                }
+            });
+        }
+
+        // --- Event Listeners ---
+        // 人口タブのボタン
+        document.querySelectorAll('.pop-filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.pop-filter-btn').forEach(b => {
+                    b.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
+                    b.classList.add('bg-white', 'text-gray-500', 'border', 'border-gray-200');
                 });
-
-            // ボタンイベント
-            const buttons = document.querySelectorAll('.filter-btn');
-            buttons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    // スタイル更新
-                    buttons.forEach(b => {
-                        b.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
-                        b.classList.add('bg-white', 'text-gray-500', 'border', 'border-gray-200');
-                    });
-                    e.target.classList.remove('bg-white', 'text-gray-500', 'border', 'border-gray-200');
-                    e.target.classList.add('bg-blue-600', 'text-white', 'shadow-md');
-
-                    // データ更新
-                    updateDashboard(e.target.dataset.range);
-                });
+                e.target.classList.remove('bg-white', 'text-gray-500', 'border', 'border-gray-200');
+                e.target.classList.add('bg-blue-600', 'text-white', 'shadow-md');
+                updatePopDashboard(e.target.dataset.range);
             });
         });
+
+        // 観光タブのボタン
+        document.querySelectorAll('.tour-filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tour-filter-btn').forEach(b => {
+                    b.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
+                    b.classList.add('text-gray-500');
+                });
+                e.target.classList.remove('text-gray-500');
+                e.target.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+                renderTimeSeriesChart(e.target.dataset.filter);
+            });
+        });
+
+        // 実行
+        window.addEventListener('DOMContentLoaded', initDashboard);
 
     </script>
 </body>
