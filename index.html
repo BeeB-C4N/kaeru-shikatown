@@ -41,16 +41,17 @@
         .btn-transition {
             transition: all 0.2s ease-in-out;
         }
-        /* Nav Tab Styles */
-        .nav-tab {
-            @apply w-28 py-2.5 text-sm font-medium rounded-full transition-all whitespace-nowrap border text-center flex-shrink-0 cursor-pointer;
+        
+        /* Main Nav Tab Styles (New Design) */
+        .main-nav-tab {
+            @apply flex items-center justify-center gap-2 px-8 py-3 text-sm font-bold rounded-full transition-all border shadow-sm w-full md:w-auto md:min-w-[180px] cursor-pointer;
         }
-        .nav-tab.active {
-            @apply text-white shadow-md font-bold border-transparent;
+        .main-nav-tab.active {
+            @apply text-white border-transparent shadow-md transform scale-105;
             background: linear-gradient(135deg, #0088CE, #00A756);
         }
-        .nav-tab.inactive {
-            @apply bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700;
+        .main-nav-tab.inactive {
+            @apply bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700 hover:shadow;
         }
         
         /* カスタムスクロールバー非表示 */
@@ -67,23 +68,16 @@
 
     <!-- Header -->
     <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
-        <div class="max-w-5xl mx-auto px-4 py-4 md:h-20 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="max-w-5xl mx-auto px-4 py-3 md:h-16 flex items-center justify-between gap-4">
             <!-- Logo -->
-            <div class="flex items-center gap-2 self-start md:self-auto">
+            <div class="flex items-center gap-2">
                 <h1 class="text-xl md:text-2xl font-bold tracking-tight text-gray-800">
                     かえる、志賀町
                 </h1>
             </div>
 
-            <!-- Navigation Tabs -->
-            <nav class="flex w-full md:w-auto overflow-x-auto gap-3 no-scrollbar pb-2 md:pb-0 px-1 md:px-0">
-                <button class="nav-tab active" data-tab="population" onclick="switchTab('population')">人口</button>
-                <button class="nav-tab inactive" data-tab="tourism" onclick="switchTab('tourism')">観光</button>
-                <button class="nav-tab inactive" onclick="alert('漁業ページへ遷移（デモ）')">漁業</button>
-            </nav>
-
-            <!-- Date Label -->
-            <div class="text-xs text-gray-400 self-end md:self-auto hidden md:block">
+            <!-- Date Label (Desktop) -->
+            <div class="text-xs text-gray-400 hidden md:block">
                 <span id="header-date">--- 現在</span>
             </div>
         </div>
@@ -92,9 +86,21 @@
     <main class="max-w-5xl mx-auto px-4 py-6 space-y-6 pb-12">
         
         <!-- Mobile Date Label -->
-        <div class="md:hidden text-right text-xs text-gray-400 -mt-2 mb-2">
+        <div class="md:hidden text-right text-xs text-gray-400 -mt-2">
             <span id="header-date-mobile">--- 現在</span>
         </div>
+
+        <!-- Main Navigation (Moved here) -->
+        <nav class="flex flex-col md:flex-row justify-center gap-3 mb-2">
+            <button class="main-nav-tab active" data-tab="population" onclick="switchTab('population')">
+                <i data-lucide="users" class="w-5 h-5"></i>
+                <span>人口・人流</span>
+            </button>
+            <button class="main-nav-tab inactive" data-tab="tourism" onclick="switchTab('tourism')">
+                <i data-lucide="map-pin" class="w-5 h-5"></i>
+                <span>観光・交流</span>
+            </button>
+        </nav>
 
         <!-- ========================================== -->
         <!--  POPULATION SECTION (人口タブ)             -->
@@ -231,12 +237,12 @@
                     観光客数モニタリング
                 </h2>
                 <p class="text-gray-500 text-sm leading-relaxed mt-1">
-                    志賀町への観光来訪者数の推移を可視化しています。震災前・コロナ禍前との比較を通じて、観光復興の進捗を確認できます。
+                    志賀町への観光来訪者数の推移を可視化しています。震災前との比較を通じて、観光復興の進捗を確認できます。
                 </p>
             </div>
 
             <!-- KPIs -->
-            <div id="tour-kpi-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-0 transition-opacity duration-500">
+            <div id="tour-kpi-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-0 transition-opacity duration-500">
                 <!-- 1. Latest -->
                 <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
                     <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-12 -mt-12"></div>
@@ -276,25 +282,6 @@
                             </div>
                             <div class="mt-1 text-sm text-gray-500">
                                 <span id="tour-kpi-2023-diff" class="font-bold">---</span> 人
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 3. vs 2019 -->
-                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-20 h-20 bg-orange-50 rounded-bl-full -mr-10 -mt-10"></div>
-                    <div>
-                        <span class="text-xs text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                            <i data-lucide="history" class="w-3 h-3"></i> コロナ前水準 (2019同月比)
-                        </span>
-                        <div class="mt-3">
-                            <div class="flex items-baseline gap-2">
-                                <span id="tour-kpi-2019-rate" class="text-3xl font-bold tracking-tight">---%</span>
-                                <span class="text-xs text-gray-400">回復率</span>
-                            </div>
-                            <div class="mt-1 text-sm text-gray-500">
-                                <span id="tour-kpi-2019-diff" class="font-bold">---</span> 人
                             </div>
                         </div>
                     </div>
@@ -356,10 +343,6 @@
                             <span class="w-3 h-3 rounded-full bg-[#93c5fd]"></span>
                             <span>過去の年 (薄い青)</span>
                         </div>
-                        <div class="flex items-center gap-1">
-                            <span class="w-8 h-0.5 border-t-2 border-dashed border-gray-400"></span>
-                            <span>2019年 (コロナ前基準)</span>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -415,8 +398,7 @@
             netNegative: 'rgba(252, 165, 165, 0.4)',
             bgArea: 'rgba(0, 167, 86, 0.05)',
             quakeRed: '#EF4444',
-            baseBlue: { r: 0, g: 136, b: 206 },
-            color2019: '#64748b'
+            baseBlue: { r: 0, g: 136, b: 206 }
         };
 
         // ボタンのスタイルクラス定数
@@ -452,8 +434,8 @@
         function switchTab(tabId) {
             currentTab = tabId;
             
-            // タブスタイルの更新
-            document.querySelectorAll('.nav-tab').forEach(btn => {
+            // タブスタイルの更新 (Main Navigation)
+            document.querySelectorAll('.main-nav-tab').forEach(btn => {
                 if(btn.dataset.tab === tabId) {
                     btn.classList.remove('inactive');
                     btn.classList.add('active');
@@ -691,11 +673,9 @@
             const prevYearData = tourData.find(d => d.year === latestYear - 1 && d.month === latestMonth);
             if (prevYearData) renderDiff('tour-kpi-yoy', valCurrent, prevYearData.value);
 
-            // KPI: vs 2023 & 2019
+            // KPI: vs 2023
             const preQuakeData = tourData.find(d => d.year === 2023 && d.month === latestMonth);
             updateTourKpi('tour-kpi-2023', valCurrent, preQuakeData ? preQuakeData.value : null);
-            const preCovidData = tourData.find(d => d.year === 2019 && d.month === latestMonth);
-            updateTourKpi('tour-kpi-2019', valCurrent, preCovidData ? preCovidData.value : null);
 
             // Charts
             renderTimeSeriesChart(rangeType);
@@ -855,20 +835,16 @@
 
             const datasets = years.map(year => {
                 const isLatest = (year === latestYear);
-                const is2019 = (year === 2019);
                 let borderColor, borderWidth, borderDash;
 
-                if (is2019) {
-                    borderColor = COLORS.color2019; borderWidth = 2; borderDash = [5, 5];
-                } else {
-                    borderDash = [];
-                    const index = years.indexOf(year);
-                    const intensity = 0.2 + (0.8 * (index / (years.length - 1 || 1)));
-                    const {r,g,b} = COLORS.baseBlue;
-                    borderColor = isLatest ? `rgba(${r},${g},${b},1)` : `rgba(${r},${g},${b},${intensity})`;
-                    borderWidth = isLatest ? 4 : 2;
-                }
-                return { label: `${year}年`, data: yearsMap[year], borderColor, backgroundColor: 'transparent', borderWidth, borderDash, pointRadius: isLatest ? 4 : (is2019?3:0), pointHoverRadius: 6, tension: 0.3 };
+                borderDash = [];
+                const index = years.indexOf(year);
+                const intensity = 0.2 + (0.8 * (index / (years.length - 1 || 1)));
+                const {r,g,b} = COLORS.baseBlue;
+                borderColor = isLatest ? `rgba(${r},${g},${b},1)` : `rgba(${r},${g},${b},${intensity})`;
+                borderWidth = isLatest ? 4 : 2;
+
+                return { label: `${year}年`, data: yearsMap[year], borderColor, backgroundColor: 'transparent', borderWidth, borderDash, pointRadius: isLatest ? 4 : 0, pointHoverRadius: 6, tension: 0.3 };
             });
 
             chartInstances.season = new Chart(ctx, {
@@ -893,7 +869,6 @@
             const latestYear = years[years.length - 1];
 
             const backgroundColors = years.map(year => {
-                if (year === 2019) return COLORS.color2019;
                 const index = years.indexOf(year);
                 const intensity = 0.3 + (0.7 * (index / (years.length - 1 || 1)));
                 const {r,g,b} = COLORS.baseBlue;
