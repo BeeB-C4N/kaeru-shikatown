@@ -113,19 +113,6 @@
                 </p>
             </div>
 
-            <!-- Controls: Time Range -->
-            <div class="flex justify-center md:justify-end gap-2">
-                <button data-range="all" class="pop-filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-blue-600 text-white shadow-md">
-                    全期間
-                </button>
-                <button data-range="post-quake" class="pop-filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-white text-gray-500 border border-gray-200 hover:bg-gray-50">
-                    震災後 (2024.1~)
-                </button>
-                <button data-range="1year" class="pop-filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-white text-gray-500 border border-gray-200 hover:bg-gray-50">
-                    直近1年
-                </button>
-            </div>
-
             <!-- KPIs -->
             <div id="pop-kpi-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-0 transition-opacity duration-500">
                 
@@ -139,6 +126,9 @@
                         <div class="mt-3 flex items-baseline gap-1">
                             <span class="text-4xl font-bold text-gray-800" id="pop-val-total">---</span>
                             <span class="text-sm text-gray-500">人</span>
+                        </div>
+                        <div class="mt-1 text-[10px] text-gray-400">
+                            ※住民基本台帳ベース
                         </div>
                     </div>
                     <div class="mt-2 text-xs text-gray-400 text-right relative z-10">
@@ -181,6 +171,19 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Controls: Time Range (Moved here) -->
+            <div class="flex justify-center md:justify-end gap-2 pt-2">
+                <button data-range="all" class="pop-filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-blue-600 text-white shadow-md">
+                    全期間
+                </button>
+                <button data-range="post-quake" class="pop-filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-white text-gray-500 border border-gray-200 hover:bg-gray-50">
+                    震災後 (2024.1~)
+                </button>
+                <button data-range="1year" class="pop-filter-btn px-4 py-1.5 rounded-full text-sm font-medium btn-transition bg-white text-gray-500 border border-gray-200 hover:bg-gray-50">
+                    直近1年
+                </button>
             </div>
 
             <!-- Chart 1: Population -->
@@ -416,6 +419,11 @@
             color2019: '#64748b'
         };
 
+        // ボタンのスタイルクラス定数
+        // hover:bg-gray-50 を削除・追加することでスマホでのhover残留を防ぐ
+        const BTN_ACTIVE_CLASSES = ['bg-blue-600', 'text-white', 'shadow-md', 'hover:bg-blue-700'];
+        const BTN_INACTIVE_CLASSES = ['bg-white', 'text-gray-500', 'border', 'border-gray-200', 'hover:bg-gray-50'];
+
         // --- 状態管理 ---
         let currentTab = 'population';
         let popData = [];
@@ -428,6 +436,17 @@
             season: null,
             yearly: null
         };
+
+        // --- ユーティリティ ---
+        function setBtnState(btn, isActive) {
+            if (isActive) {
+                btn.classList.remove(...BTN_INACTIVE_CLASSES);
+                btn.classList.add(...BTN_ACTIVE_CLASSES);
+            } else {
+                btn.classList.remove(...BTN_ACTIVE_CLASSES);
+                btn.classList.add(...BTN_INACTIVE_CLASSES);
+            }
+        }
 
         // --- タブ切り替え ---
         function switchTab(tabId) {
@@ -868,7 +887,7 @@
             if (chartInstances.yearly) chartInstances.yearly.destroy();
 
             const yearlyTotal = {};
-            tourData.forEach(d => { if (!yearsMap[d.year]) yearlyTotal[d.year] = 0; yearlyTotal[d.year] += d.value; });
+            tourData.forEach(d => { if (!yearlyTotal[d.year]) yearlyTotal[d.year] = 0; yearlyTotal[d.year] += d.value; });
             const years = Object.keys(yearlyTotal).map(Number).sort((a, b) => a - b);
             const totals = years.map(y => yearlyTotal[y]);
             const latestYear = years[years.length - 1];
@@ -896,12 +915,8 @@
         // 人口タブのボタン
         document.querySelectorAll('.pop-filter-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.pop-filter-btn').forEach(b => {
-                    b.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
-                    b.classList.add('bg-white', 'text-gray-500', 'border', 'border-gray-200');
-                });
-                e.target.classList.remove('bg-white', 'text-gray-500', 'border', 'border-gray-200');
-                e.target.classList.add('bg-blue-600', 'text-white', 'shadow-md');
+                document.querySelectorAll('.pop-filter-btn').forEach(b => setBtnState(b, false));
+                setBtnState(e.target, true);
                 updatePopDashboard(e.target.dataset.range);
             });
         });
@@ -909,12 +924,8 @@
         // 観光タブのボタン
         document.querySelectorAll('.tour-filter-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.tour-filter-btn').forEach(b => {
-                    b.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
-                    b.classList.add('text-gray-500');
-                });
-                e.target.classList.remove('text-gray-500');
-                e.target.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+                document.querySelectorAll('.tour-filter-btn').forEach(b => setBtnState(b, false));
+                setBtnState(e.target, true);
                 renderTimeSeriesChart(e.target.dataset.filter);
             });
         });
