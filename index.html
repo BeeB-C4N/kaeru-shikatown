@@ -42,16 +42,21 @@
             transition: all 0.2s ease-in-out;
         }
         
-        /* Main Nav Tab Styles (New Design) */
+        /* --- Folder Tab Styles --- */
+        /* タブボタン共通: 上だけ丸く、枠線あり、下に1px食い込ませる */
         .main-nav-tab {
-            @apply flex items-center justify-center gap-2 px-8 py-3 text-sm font-bold rounded-full transition-all border shadow-sm w-full md:w-auto md:min-w-[180px] cursor-pointer;
+            @apply flex-shrink-0 flex items-center justify-center gap-2 px-8 py-3 text-sm font-bold rounded-t-lg transition-colors duration-200 min-w-[120px] cursor-pointer border border-b-0 -mb-[1px];
         }
+        
+        /* アクティブ時: 背景薄い青、文字濃い青、下線は透明(コンテンツと結合)、上・左右は枠線あり */
         .main-nav-tab.active {
-            @apply text-white border-transparent shadow-md transform scale-105;
-            background: linear-gradient(135deg, #0088CE, #00A756);
+            @apply bg-[#F0F9FF] text-blue-700 border-gray-300 border-b-[#F8FAFC]; 
+            /* border-b-[#F8FAFC] はbody背景色と同じにして線を消す */
         }
+        
+        /* 非アクティブ時: 背景白、文字グレー、枠線薄いグレー、下線あり(区切り線) */
         .main-nav-tab.inactive {
-            @apply bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700 hover:shadow;
+            @apply bg-white text-gray-500 border-gray-200 border-b-gray-200 hover:bg-gray-50 hover:text-gray-700;
         }
         
         /* カスタムスクロールバー非表示 */
@@ -83,24 +88,30 @@
         </div>
     </header>
 
+    <!-- Navigation Bar (Tab Container) -->
+    <!-- bg-whiteにし、下にグレーのボーダーを引くことでタブの接地感を出す -->
+    <div class="w-full bg-white border-b border-gray-200 sticky top-[57px] md:top-[64px] z-40">
+        <div class="max-w-5xl mx-auto px-4">
+            <!-- pt-4 で上に余白を持たせ、items-endで底辺を揃える -->
+            <nav class="flex overflow-x-auto no-scrollbar gap-2 items-end pt-2">
+                <button class="main-nav-tab active" data-tab="population" onclick="switchTab('population')">
+                    <i data-lucide="users" class="w-4 h-4"></i>
+                    <span>人口</span>
+                </button>
+                <button class="main-nav-tab inactive" data-tab="tourism" onclick="switchTab('tourism')">
+                    <i data-lucide="map-pin" class="w-4 h-4"></i>
+                    <span>観光</span>
+                </button>
+            </nav>
+        </div>
+    </div>
+
     <main class="max-w-5xl mx-auto px-4 py-6 space-y-6 pb-12">
         
         <!-- Mobile Date Label -->
         <div class="md:hidden text-right text-xs text-gray-400 -mt-2">
             <span id="header-date-mobile">--- 現在</span>
         </div>
-
-        <!-- Main Navigation (Moved here) -->
-        <nav class="flex flex-col md:flex-row justify-center gap-3 mb-2">
-            <button class="main-nav-tab active" data-tab="population" onclick="switchTab('population')">
-                <i data-lucide="users" class="w-5 h-5"></i>
-                <span>人口・人流</span>
-            </button>
-            <button class="main-nav-tab inactive" data-tab="tourism" onclick="switchTab('tourism')">
-                <i data-lucide="map-pin" class="w-5 h-5"></i>
-                <span>観光・交流</span>
-            </button>
-        </nav>
 
         <!-- ========================================== -->
         <!--  POPULATION SECTION (人口タブ)             -->
@@ -402,7 +413,6 @@
         };
 
         // ボタンのスタイルクラス定数
-        // hover:bg-gray-50 を削除・追加することでスマホでのhover残留を防ぐ
         const BTN_ACTIVE_CLASSES = ['bg-blue-600', 'text-white', 'shadow-md', 'hover:bg-blue-700'];
         const BTN_INACTIVE_CLASSES = ['bg-white', 'text-gray-500', 'border', 'border-gray-200', 'hover:bg-gray-50'];
 
