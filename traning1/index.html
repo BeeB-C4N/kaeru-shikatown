@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>#1 AIとWebページを作ってみる</title>
+    <style>
+        /* 志賀町カラーをベースにしたテーマ設定 */
+        :root {
+            --primary-color: #0B67B2;
+            --primary-hover: #09508A;
+            --secondary-color: #69B340;
+            --accent-color: #F0820F;
+            --bg-color: #f8fafc;
+            --slide-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --code-bg: #1e1e1e;
+            --code-text: #d4d4d4;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            line-height: 1.6;
+        }
+
+        /* ヘッダーエリア */
+        header {
+            background-color: var(--slide-bg);
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(11, 103, 178, 0.1);
+            border-bottom: 3px solid var(--secondary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .course-title {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        /* スライドエリア */
+        .slide-container {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            max-width: 1300px;
+            margin: 0 auto;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .slide {
+            display: none;
+            background: var(--slide-bg);
+            border-radius: 12px;
+            border-top: 4px solid var(--primary-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 40px 50px;
+            min-height: 100%;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* スライド内のタイポグラフィ */
+        .slide h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slide h2::before {
+            content: "";
+            display: block;
+            width: 8px;
+            height: 32px;
+            background-color: var(--accent-color);
+            border-radius: 4px;
+        }
+
+        .slide h3 {
+            font-size: 1.4rem;
+            margin: 25px 0 15px 0;
+            color: var(--secondary-color);
+        }
+
+        .slide p {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .slide ul, .slide ol {
+            margin-bottom: 20px;
+            padding-left: 30px;
+            font-size: 1.1rem;
+        }
+
+        .slide li {
+            margin-bottom: 8px;
+        }
+
+        /* コントロールエリア (下部) */
+        .controls {
+            background: var(--slide-bg);
+            height: 70px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.02);
+            z-index: 10;
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: var(--border-color);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--accent-color);
+            border: 2px solid var(--accent-color);
+        }
+        .btn-outline:hover {
+            background: #fff3e0;
+        }
+
+        .page-indicator {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            background: #f1f5f9;
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        /* コードとプレビューの分割レイアウト */
+        .split-view {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            align-items: stretch;
+            height: 500px; /* 固定高さを設けてスクロールさせる */
+        }
+
+        .split-view > div {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* コードブロックのスタイル */
+        .code-wrapper {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2d2d2d;
+            padding: 8px 15px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #fff;
+            border-bottom: 1px solid #444;
+        }
+
+        .copy-btn {
+            background: var(--secondary-color);
+            border: none;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #559632;
+        }
+
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            margin: 0;
+            padding: 15px;
+            overflow-y: auto;
+            overflow-x: auto;
+            font-family: Consolas, Monaco, "Courier New", monospace;
+            font-size: 0.85rem;
+            flex-grow: 1;
+            line-height: 1.4;
+        }
+
+        /* プレビューiframeのスタイル */
+        .preview-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+
+        .preview-header {
+            background: #f8fafc;
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .preview-frame {
+            width: 100%;
+            flex-grow: 1;
+            border: none;
+            background: white;
+        }
+
+        /* その他ユーティリティ */
+        .highlight-box {
+            background: #f0fdf4;
+            border-left: 4px solid var(--secondary-color);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .prompt-box {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--primary-color);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .prompt-text {
+            font-family: monospace;
+            font-size: 1.05rem;
+            color: #0f172a;
+            margin-right: 15px;
+        }
+
+        .folder-structure {
+            font-family: monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            line-height: 1.8;
+            font-size: 1.1rem;
+        }
+        .folder-structure span.comment { color: #6a9955; }
+        .folder-structure span.folder { color: #4fc1ff; font-weight: bold; }
+        .folder-structure span.file { color: #ce9178; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>#1 AIとWebページを作ってみる</h1>
+        <div class="course-title">LGWAN環境 Webアプリ開発研修</div>
+    </header>
+
+    <div class="slide-container">
+
+        <!-- ==========================================
+             スライド 1: タイトル
+        =========================================== -->
+        <section class="slide active">
+            <div style="text-align: center; margin-top: 15vh;">
+                <h2 style="border: none; justify-content: center; font-size: 3.5rem; color: var(--primary-color); margin-bottom: 30px;">AIとWebページを作ってみる</h2>
+                <p style="font-size: 1.5rem; color: var(--text-muted); margin-bottom: 50px;">HTML・CSS・JavaScriptによる静的サイト構築の基礎</p>
+                
+                <div class="highlight-box" style="text-align: left; max-width: 600px; margin: 0 auto; background: #f0f7ff; border-left-color: var(--primary-color);">
+                    <h3 style="margin-top: 0; color: var(--primary-color);">本日の目標</h3>
+                    <ul>
+                        <li>Webページが何から作られているかを知る（HTML/CSS/JS）</li>
+                        <li>生成AI（ChatGPTやGemini）を使った開発手法を体験する</li>
+                        <li>LGWAN環境でも開発できる「ローカル環境構築」をマスターする</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             スライド 2: 準備編
+        =========================================== -->
+        <section class="slide">
+            <h2>準備：AIとメモ帳で作るWebページ</h2>
+            <p>LGWAN環境のようなインターネットから切り離された環境でも、Windows標準の「メモ帳」があればWeb開発が可能です。<br>
+            この研修では、<strong>完全なコード（コピペしてそのまま動く形）</strong>を扱い、ブラウザで確認します。</p>
+            
+            <h3>プロトタイプ開発の基本フロー</h3>
+            <ol>
+                <li><strong>AIに指示を出す：</strong> インターネットが使える端末で、AIにWebページのコードを作成させます。</li>
+                <li><strong>コードを持ち込む：</strong> 生成されたコードをテキストデータとしてLGWAN環境に持ち込みます。</li>
+                <li><strong>メモ帳に貼り付ける：</strong> メモ帳を開き、コードを<strong>すべて</strong>貼り付けます。</li>
+                <li><strong>拡張子を変えて保存：</strong> ファイル名を <code style="background:#eee; padding:2px 5px;">index.html</code> にして保存します。<br>
+                    <small style="color: var(--accent-color);">※保存時、文字コードが「UTF-8」になっていることを確認してください。</small></li>
+                <li><strong>ブラウザで開く：</strong> 保存したファイルをダブルクリックして、Edgeなどのブラウザで開きます。</li>
+            </ol>
+
+            <div class="highlight-box">
+                <p><strong>重要ポイント：</strong> Webページとして正しく表示させるには、<code>&lt;html&gt;</code> や <code>&lt;body&gt;</code> などの「お作法（タグ）」が含まれた完全なコードである必要があります。以降のステップでは、すべて完全なコードを用意しています。</p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             スライド 3: Step 1 HTML
+        =========================================== -->
+        <section class="slide">
+            <h2>Step 1：HTMLだけでページを作る</h2>
+            <p>HTML（HyperText Markup Language）は、Webページの<strong>「骨組み・構造」</strong>を作る言語です。</p>
+            <p>まずはデザイン（色やレイアウト）が一切ない、純粋な骨組みだけのページを見てみましょう。コードをコピーしてメモ帳に貼り付け、動作を確認してみてください。</p>
+
+            <div class="split-view">
+                <div>
+                    <div class="code-wrapper">
+                        <div class="code-header">
+                            <span>index.html</span>
+                            <button class="copy-btn" onclick="copyCode(this, 'code-step1')">コードをコピー</button>
+                        </div>
+                        <pre><code id="code-step1" data-preview-target="preview-step1">&lt;!DOCTYPE html&gt;
+&lt;html lang="ja"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;志賀町の紹介&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;志賀町の紹介&lt;/h1&gt;
+    &lt;p&gt;自然豊かな素晴らしい町です。&lt;/p&gt;
+
+    &lt;h2&gt;おすすめポイント&lt;/h2&gt;
+    &lt;ul&gt;
+        &lt;li&gt;美しい海岸線（増穂浦海岸など）&lt;/li&gt;
+        &lt;li&gt;美味しい海産物&lt;/li&gt;
+        &lt;li&gt;歴史ある巌門&lt;/li&gt;
+    &lt;/ul&gt;
+
+    &lt;button&gt;詳細を見る&lt;/button&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+                    </div>
+                </div>
+                <div>
+                    <div class="preview-wrapper">
+                        <div class="preview-header">ブラウザでの表示（プレビュー）</div>
+                        <iframe id="preview-step1" class="preview-frame" sandbox="allow-scripts"></iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             スライド 4: Step 2 CSS
+        =========================================== -->
+        <section class="slide">
+            <h2>Step 2：CSSでデザインを追加する</h2>
+            <p>CSS（Cascading Style Sheets）は、Webページに<strong>「装飾・デザイン」</strong>を施す言語です。<br>
+            先ほどのHTMLの <code>&lt;head&gt;</code> の中に <code>&lt;style&gt;</code> タグを追加し、志賀町カラーでデザインします。</p>
+
+            <div class="split-view">
+                <div>
+                    <div class="code-wrapper">
+                        <div class="code-header">
+                            <span>index.html (HTML + CSS)</span>
+                            <button class="copy-btn" onclick="copyCode(this, 'code-step2')">コードをコピー</button>
+                        </div>
+                        <pre><code id="code-step2" data-preview-target="preview-step2">&lt;!DOCTYPE html&gt;
+&lt;html lang="ja"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;志賀町の紹介 - CSS版&lt;/title&gt;
+    &lt;style&gt;
+        body { 
+            font-family: sans-serif; 
+            background-color: #f0fdf4;
+            padding: 20px; 
+            color: #333; 
+        }
+        h1 { 
+            color: #0B67B2;
+            border-bottom: 3px solid #0B67B2; 
+        }
+        ul { 
+            background: white; 
+            padding: 20px 40px; 
+            border-radius: 8px; 
+            border-left: 5px solid #69B340;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+        }
+        button {
+            background: #F0820F;
+            color: white; font-weight: bold;
+            border: none; padding: 10px 20px;
+            border-radius: 4px; cursor: pointer;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;志賀町の紹介&lt;/h1&gt;
+    &lt;p&gt;自然豊かな素晴らしい町です。&lt;/p&gt;
+    &lt;h2&gt;おすすめポイント&lt;/h2&gt;
+    &lt;ul&gt;
+        &lt;li&gt;美しい海岸線（増穂浦海岸など）&lt;/li&gt;
+        &lt;li&gt;美味しい海産物&lt;/li&gt;
+        &lt;li&gt;歴史ある巌門&lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;button&gt;詳細を見る&lt;/button&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+                    </div>
+                </div>
+                <div>
+                    <div class="preview-wrapper">
+                        <div class="preview-header">ブラウザでの表示（プレビュー）</div>
+                        <iframe id="preview-step2" class="preview-frame" sandbox="allow-scripts"></iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             スライド 5: Step 3 JavaScript 用語
+        =========================================== -->
+        <section class="slide">
+            <h2>Step 3：JavaScriptで動きをつける（機能紹介）</h2>
+            <p>JavaScript（JS）は、Webページに<strong>「動き・機能」</strong>を追加する言語です。<br>
+            AIに指示を出すためには、実現したい機能の「一般的な名称（専門用語）」を知っておくことが非常に重要です。</p>
+
+            <div class="highlight-box">
+                <h3>AIへの指示で役立つキーワード</h3>
+                <ul style="font-size: 1.2rem; line-height: 2;">
+                    <li><strong>ハンバーガーメニュー：</strong> スマホ等で三本線（≡）を押すと出てくるメニュー。</li>
+                    <li><strong>モーダルウィンドウ：</strong> 画面の真ん中にポンッと浮き出て、背景が暗くなる小窓。</li>
+                    <li><strong>アコーディオン：</strong> 見出しをクリックすると、ビヨーンと詳細が開閉する仕組み。</li>
+                    <li><strong>カルーセル（スライダー）：</strong> 画像や要素が横にスライドして切り替わる機能。</li>
+                    <li><strong>ドラッグ＆ドロップ：</strong> マウスで要素を掴んで、別の場所に移動させる操作。</li>
+                </ul>
+                <p style="margin-top:20px;">次のページでは、これまで学んだ「志賀町の紹介」のコードをベースに、上記の機能をすべて盛り込んだ<strong>「完全版のコード」</strong>を見てみましょう。</p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             スライド 6: JS実装 統合コード
+        =========================================== -->
+        <section class="slide">
+            <h2>Step 3：JavaScriptで動きをつける（実装編）</h2>
+            <p>HTMLとCSSで作成したベースに、JavaScriptで様々な機能を追加したコードです。<br>右側のプレビューで、各機能（メニュー、アコーディオン、モーダルなど）を実際に触って確認してください。</p>
+
+            <div class="split-view">
+                <div>
+                    <div class="code-wrapper">
+                        <div class="code-header">
+                            <span>index.html (HTML + CSS + JS 完成版)</span>
+                            <button class="copy-btn" onclick="copyCode(this, 'code-step3')">コードをコピー</button>
+                        </div>
+                        <pre><code id="code-step3" data-preview-target="preview-step3">&lt;!DOCTYPE html&gt;
+&lt;html lang="ja"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;志賀町の紹介 - 完成版&lt;/title&gt;
+    &lt;style&gt;
+        /* ============================
+           基本デザイン
+           ============================ */
+        body { font-family: sans-serif; background-color: #f0fdf4; margin: 0; color: #333; }
+        .container { padding: 20px; }
+        h1.site-title { color: white; margin: 0; font-size: 1.5rem; }
+        h2 { color: #0B67B2; border-bottom: 2px solid #0B67B2; margin-top: 30px; padding-bottom: 5px; }
+
+        /* ============================
+           JavaScript機能向けのデザイン
+           ============================ */
+        /* ハンバーガーメニュー */
+        header { background: #0B67B2; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .menu-btn { font-size: 24px; cursor: pointer; background: none; border: none; color: white; }
+        nav { display: none; background: #69B340; color: white; padding: 15px 20px; }
+        nav.open { display: block; }
+        nav ul { list-style: none; padding: 0; margin: 0; }
+        nav li { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.3); font-weight: bold; }
+
+        /* アコーディオン */
+        .accordion-title { background: white; padding: 15px; cursor: pointer; font-weight: bold; border: 1px solid #69B340; border-radius: 4px; margin-top: 10px; }
+        .accordion-title:hover { background: #eef8f0; }
+        .accordion-content { display: none; background: white; padding: 15px; border: 1px solid #69B340; border-top: none; }
+        .accordion-content.show { display: block; }
+
+        /* モーダル */
+        .btn-detail { background: #F0820F; color: white; font-weight: bold; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-top: 15px; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 100; }
+        .modal-overlay.show { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; max-width: 90%; text-align: center; border-top: 5px solid #F0820F; }
+
+        /* カルーセル */
+        .carousel-wrapper { width: 100%; max-width: 400px; overflow: hidden; border-radius: 8px; margin: 15px 0; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .carousel-track { display: flex; transition: transform 0.4s ease; }
+        .slide-item { min-width: 100%; height: 150px; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: white; }
+        .controls button { background: #333; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+
+        /* ドラッグ＆ドロップ */
+        .dnd-container { display: flex; gap: 10px; margin-top: 15px; }
+        .drop-box { flex: 1; min-height: 120px; border: 2px dashed #0B67B2; border-radius: 8px; padding: 10px; background: white; }
+        .dnd-item { background: #69B340; color: white; font-weight: bold; padding: 10px; margin-bottom: 5px; border-radius: 4px; cursor: grab; text-align: center; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+    &lt;!-- ハンバーガーメニュー --&gt;
+    &lt;header&gt;
+        &lt;h1 class="site-title"&gt;志賀町の紹介&lt;/h1&gt;
+        &lt;button class="menu-btn" onclick="toggleMenu()"&gt;≡&lt;/button&gt;
+    &lt;/header&gt;
+    &lt;nav id="myMenu"&gt;
+        &lt;ul&gt;
+            &lt;li&gt;トップページ&lt;/li&gt;
+            &lt;li&gt;特産品一覧&lt;/li&gt;
+            &lt;li&gt;観光地案内&lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/nav&gt;
+
+    &lt;div class="container"&gt;
+        &lt;p&gt;自然豊かな素晴らしい町です。&lt;/p&gt;
+
+        &lt;!-- アコーディオン --&gt;
+        &lt;h2&gt;おすすめポイント&lt;/h2&gt;
+        &lt;div class="accordion-title" onclick="toggleAcc(this)"&gt;美しい海岸線を見る ▼&lt;/div&gt;
+        &lt;div class="accordion-content"&gt;増穂浦海岸など、日本海に面した美しい景色が広がります。&lt;/div&gt;
+        
+        &lt;div class="accordion-title" onclick="toggleAcc(this)"&gt;美味しい海産物を見る ▼&lt;/div&gt;
+        &lt;div class="accordion-content"&gt;日本海で獲れる新鮮な魚介類が豊富に楽しめます。&lt;/div&gt;
+
+        &lt;!-- モーダル --&gt;
+        &lt;h2&gt;詳細情報&lt;/h2&gt;
+        &lt;button class="btn-detail" onclick="openModal()"&gt;重要なお知らせを見る&lt;/button&gt;
+
+        &lt;!-- カルーセル --&gt;
+        &lt;h2&gt;特産品ハイライト&lt;/h2&gt;
+        &lt;div class="carousel-wrapper"&gt;
+            &lt;div class="carousel-track" id="track"&gt;
+                &lt;div class="slide-item" style="background:#0B67B2;"&gt;巌門&lt;/div&gt;
+                &lt;div class="slide-item" style="background:#F0820F;"&gt;能登牛&lt;/div&gt;
+                &lt;div class="slide-item" style="background:#69B340;"&gt;スイカ&lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class="controls"&gt;
+            &lt;button onclick="moveSlide(-1)"&gt;前へ&lt;/button&gt;
+            &lt;button onclick="moveSlide(1)"&gt;次へ&lt;/button&gt;
+        &lt;/div&gt;
+
+        &lt;!-- ドラッグ＆ドロップ --&gt;
+        &lt;h2&gt;お気に入りリスト作成&lt;/h2&gt;
+        &lt;p style="font-size: 14px;"&gt;緑のアイテムを右の箱にドラッグしてください。&lt;/p&gt;
+        &lt;div class="dnd-container"&gt;
+            &lt;div class="drop-box" ondragover="allowDrop(event)" ondrop="drop(event)"&gt;
+                &lt;div class="dnd-item" draggable="true" ondragstart="drag(event)" id="item1"&gt;ころ柿&lt;/div&gt;
+                &lt;div class="dnd-item" draggable="true" ondragstart="drag(event)" id="item2"&gt;能登牛&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class="drop-box" style="border-color:#F0820F;" ondragover="allowDrop(event)" ondrop="drop(event)"&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;!-- モーダルの実体 --&gt;
+    &lt;div id="infoModal" class="modal-overlay"&gt;
+        &lt;div class="modal-content"&gt;
+            &lt;h3 style="color:#F0820F; margin-top:0;"&gt;特産品フェア開催&lt;/h3&gt;
+            &lt;p&gt;今週末、特産品フェアが開催されます！&lt;/p&gt;
+            &lt;button class="btn-detail" onclick="closeModal()"&gt;閉じる&lt;/button&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;script&gt;
+        // 1. ハンバーガーメニュー
+        function toggleMenu() { document.getElementById("myMenu").classList.toggle("open"); }
+        
+        // 2. アコーディオン
+        function toggleAcc(element) { element.nextElementSibling.classList.toggle("show"); }
+        
+        // 3. モーダル
+        function openModal() { document.getElementById("infoModal").classList.add("show"); }
+        function closeModal() { document.getElementById("infoModal").classList.remove("show"); }
+        
+        // 4. カルーセル
+        let currentIndex = 0;
+        function moveSlide(direction) {
+            currentIndex += direction;
+            if (currentIndex &lt; 0) currentIndex = 2;
+            if (currentIndex &gt; 2) currentIndex = 0;
+            document.getElementById("track").style.transform = `translateX(-${currentIndex * 100}%)`;
+        }
+        
+        // 5. ドラッグ＆ドロップ
+        function allowDrop(ev) { ev.preventDefault(); }
+        function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
+        function drop(ev) {
+            ev.preventDefault();
+            ev.target.appendChild(document.getElementById(ev.dataTransfer.getData("text")));
+        }
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+                    </div>
+                </div>
+                <div>
+                    <div class="preview-wrapper">
+                        <div class="preview-header">ブラウザでの表示（プレビュー）</div>
+                        <iframe id="preview-step3" class="preview-frame" sandbox="allow-scripts"></iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             スライド 7: ディレクトリ構造
+        =========================================== -->
+        <section class="slide">
+            <h2>Step 4：ディレクトリ構造と画像パス</h2>
+            <p>ローカル環境で画像を表示するには、HTMLファイルと同じ場所（ディレクトリ）に画像ファイルを準備し、<strong>「相対パス」</strong>で指定する必要があります。</p>
+
+            <div class="split-view" style="height: auto;">
+                <div>
+                    <h3>1. フォルダ構成を作る</h3>
+                    <div class="folder-structure">
+                        <span class="folder">プロジェクトフォルダ</span> <span class="comment">... 任意の名前のフォルダ</span><br>
+                        &nbsp;├── <span class="file">index.html</span> <span class="comment">... 作成したHTMLファイル</span><br>
+                        &nbsp;└── <span class="folder">images</span> <span class="comment">... 新しく画像用のフォルダを作る</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="file">bg.png</span> <span class="comment">... ここに画像を配置する</span>
+                    </div>
+                </div>
+                <div>
+                    <h3>2. HTMLで画像を読み込む</h3>
+                    <p><code>&lt;img&gt;</code> タグの <code>src</code> 属性に、HTMLファイルから見た画像の位置（パス）を書きます。<br>
+                    <code>./</code> は「今いるフォルダ」を意味します。</p>
+                    
+                    <div class="code-wrapper" style="height: auto;">
+                        <div class="code-header">
+                            <span>画像の読み込み例 (index.htmlの一部)</span>
+                            <button class="copy-btn" onclick="copyCode(this, 'code-step4')">コードをコピー</button>
+                        </div>
+                        <pre style="height: auto; overflow: visible;"><code id="code-step4">&lt;!DOCTYPE html&gt;
+&lt;html lang="ja"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;画像の読み込み&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;!-- imagesフォルダの中の bg.png を読み込む --&gt;
+    &lt;img src="./images/bg.png" alt="タイトル画像" style="max-width: 100%;"&gt;
+
+    &lt;h1&gt;志賀町の紹介&lt;/h1&gt;
+    &lt;p&gt;上に画像が表示されていれば、パスの指定は成功です！&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="highlight-box">
+                <p>もし画像が表示されない場合は、<strong>「フォルダ名が間違っていないか」</strong>、<strong>「拡張子が .png や .jpg で合っているか」</strong>を確認しましょう。</p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             スライド 8: 演習課題
+        =========================================== -->
+        <section class="slide">
+            <h2>演習課題：プロトタイプを作ってみよう</h2>
+            <p>生成AI（ChatGPT等）を使って、<strong>「志賀町優良特産品」</strong>を紹介するWebサイトのプロトタイプを作成し、メモ帳を使ってローカルで表示してみましょう。</p>
+            
+            <div class="highlight-box">
+                <h3 style="margin-top: 0; color: var(--primary-color);">プロトタイプ作成のTips（LGWAN環境向け）</h3>
+                <ul style="margin-bottom: 0;">
+                    <li>AIへの指示に<strong>「完全なHTMLファイルとして、CSSやJSも1つのファイルにまとめて出力して」</strong>と付け加えると、コピペが確実になります。</li>
+                    <li>LGWAN環境などインターネットに繋がらない環境で動かすため、<strong>「外部のライブラリ（CDNなど）は参照せず、独自の実装で記述して」</strong>と指定するのがコツです。</li>
+                </ul>
+            </div>
+
+            <p>以下のプロンプト（指示文）をコピーしてAIに送信するか、自由にアレンジして作成してください。</p>
+
+            <h3 style="color: var(--primary-color);">プロンプト例</h3>
+
+            <div class="prompt-box">
+                <div class="prompt-text" id="prompt1">「志賀町優良特産品」を紹介するショッピングサイトのように、画像（プレースホルダー）とテキストをカード型にして並べるHTMLベースのWebサイトを完全な1ファイルで作って。色は#69B340と#F0820Fを使って。</div>
+                <button class="btn btn-outline" onclick="copyPrompt(this, 'prompt1')">コピー</button>
+            </div>
+
+            <div class="prompt-box">
+                <div class="prompt-text" id="prompt2">絵画のギャラリーのように特産品の画像枠を美しく並べたHTMLベースのWebサイトを完全な1ファイルで作って。画像ホバー時にキャプションが出るようにして。</div>
+                <button class="btn btn-outline" onclick="copyPrompt(this, 'prompt2')">コピー</button>
+            </div>
+
+            <div class="prompt-box">
+                <div class="prompt-text" id="prompt3">Instagramのようなフォーマットで「志賀町優良特産品」の画像を並べたHTMLベースのWebサイトを完全な1ファイルで作って。ハンバーガーメニューも付けて。</div>
+                <button class="btn btn-outline" onclick="copyPrompt(this, 'prompt3')">コピー</button>
+            </div>
+
+            <div class="prompt-box">
+                <div class="prompt-text" id="prompt4">デザイン会社のように、大きさの異なる画像枠が不規則に配置されているスタイリッシュなサイトをHTMLベースで完全な1ファイルで作って。白と黒を基調にしつつ、アクセントに#0B67B2を使って。</div>
+                <button class="btn btn-outline" onclick="copyPrompt(this, 'prompt4')">コピー</button>
+            </div>
+
+        </section>
+
+    </div>
+
+    <!-- コントロールエリア -->
+    <div class="controls">
+        <button id="prevBtn" class="btn" onclick="prevSlide()" disabled>← 前へ</button>
+        <div id="pageIndicator" class="page-indicator">1 / 8</div>
+        <button id="nextBtn" class="btn" onclick="nextSlide()">次へ →</button>
+    </div>
+
+    <!-- JavaScript 処理 -->
+    <script>
+        // スライドナビゲーションのロジック
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pageIndicator = document.getElementById('pageIndicator');
+        const container = document.querySelector('.slide-container');
+
+        function updateSlide() {
+            slides.forEach((slide, index) => {
+                if (index === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+
+            // ボタンの状態更新
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            
+            // ページ番号の更新
+            pageIndicator.textContent = `${currentSlide + 1} / ${slides.length}`;
+            
+            // スライドが切り替わったら一番上にスクロール
+            container.scrollTop = 0;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        // キーボード操作への対応 (左右矢印キー)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            }
+        });
+
+        // プレビュー用iframeの初期化
+        function initPreviews() {
+            const codeBlocks = document.querySelectorAll('code[data-preview-target]');
+            codeBlocks.forEach(code => {
+                const targetId = code.getAttribute('data-preview-target');
+                const iframe = document.getElementById(targetId);
+                if (iframe) {
+                    iframe.srcdoc = code.textContent;
+                }
+            });
+        }
+
+        // コピー機能
+        function copyCode(btnElement, targetId) {
+            const textToCopy = document.getElementById(targetId).textContent;
+            executeCopy(textToCopy, btnElement, 'コードをコピー');
+        }
+
+        function copyPrompt(btnElement, targetId) {
+            const textToCopy = document.getElementById(targetId).textContent;
+            executeCopy(textToCopy, btnElement, 'コピー');
+        }
+
+        function executeCopy(text, btnElement, originalText) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    btnElement.textContent = 'コピー完了！';
+                    btnElement.style.backgroundColor = 'var(--secondary-color)';
+                    btnElement.style.color = 'white';
+                    
+                    setTimeout(() => {
+                        btnElement.textContent = originalText;
+                        btnElement.style.backgroundColor = '';
+                        btnElement.style.color = '';
+                    }, 2000);
+                } else {
+                    alert('コピーに失敗しました。');
+                }
+            } catch (err) {
+                console.error('コピーエラー:', err);
+                alert('お使いの環境ではコピー機能がサポートされていません。手動で選択してコピーしてください。');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // 初期化処理の実行
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSlide();
+            initPreviews();
+        });
+    </script>
+</body>
+</html>
