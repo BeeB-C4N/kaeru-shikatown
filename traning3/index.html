@@ -3,32 +3,472 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>志賀町トイレマップ</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>#3 AIとマップアプリを作ってみる</title>
     <style>
-        body { margin: 0; padding: 0; }
-        #map { width: 100vw; height: 100vh; }
+        /* 志賀町カラーをベースにしたテーマ設定 */
+        :root {
+            --primary-color: #0B67B2;
+            --primary-hover: #09508A;
+            --secondary-color: #69B340;
+            --accent-color: #F0820F;
+            --bg-color: #f8fafc;
+            --slide-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --code-bg: #1e1e1e;
+            --code-text: #d4d4d4;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            line-height: 1.6;
+        }
+
+        /* ヘッダーエリア */
+        header {
+            background-color: var(--slide-bg);
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(11, 103, 178, 0.1);
+            border-bottom: 3px solid var(--secondary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .course-title {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        /* スライドエリア */
+        .slide-container {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            max-width: 1300px;
+            margin: 0 auto;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .slide {
+            display: none;
+            background: var(--slide-bg);
+            border-radius: 12px;
+            border-top: 4px solid var(--primary-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 40px 50px;
+            min-height: 100%;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* タイポグラフィ */
+        .slide h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slide h2::before {
+            content: "";
+            display: block;
+            width: 8px;
+            height: 32px;
+            background-color: var(--accent-color);
+            border-radius: 4px;
+        }
+
+        .slide h3 {
+            font-size: 1.4rem;
+            margin: 25px 0 15px 0;
+            color: var(--secondary-color);
+        }
+
+        .slide p { margin-bottom: 15px; font-size: 1.1rem; }
+        .slide ul, .slide ol { margin-bottom: 20px; padding-left: 30px; font-size: 1.1rem; }
+        .slide li { margin-bottom: 8px; }
+
+        /* コントロールエリア (下部) */
+        .controls {
+            background: var(--slide-bg);
+            height: 70px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.02);
+            z-index: 10;
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: var(--border-color);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--accent-color);
+            border: 2px solid var(--accent-color);
+        }
+
+        .btn-success { background: var(--secondary-color); }
+
+        .page-indicator {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            background: #f1f5f9;
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        /* 分割レイアウト */
+        .split-view {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            align-items: stretch;
+            height: 500px;
+        }
+
+        .split-view > div {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* コードブロック */
+        .code-wrapper {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2d2d2d;
+            padding: 8px 15px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #fff;
+            border-bottom: 1px solid #444;
+        }
+
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            margin: 0;
+            padding: 15px;
+            overflow-y: auto;
+            overflow-x: auto;
+            font-family: Consolas, Monaco, "Courier New", monospace;
+            font-size: 0.8rem;
+            flex-grow: 1;
+            line-height: 1.4;
+        }
+
+        /* プレビュー */
+        .preview-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            background: #eee;
+        }
+
+        .preview-header {
+            background: #f8fafc;
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .preview-frame {
+            width: 100%;
+            flex-grow: 1;
+            border: none;
+            background: white;
+        }
+
+        /* ユーティリティ */
+        .highlight-box {
+            background: #f0fdf4;
+            border-left: 4px solid var(--secondary-color);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        code.inline {
+            background: #eee;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #d946ef;
+        }
     </style>
 </head>
 <body>
-    <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
+    <header>
+        <h1>#3 AIとマップアプリを作ってみる</h1>
+        <div class="course-title">LGWAN環境 Webアプリ開発研修</div>
+    </header>
+
+    <div class="slide-container">
+
+        <!-- スライド 1: タイトル -->
+        <section class="slide active">
+            <div style="text-align: center; margin-top: 10vh;">
+                <h2 style="border: none; justify-content: center; font-size: 3.5rem; color: var(--primary-color); margin-bottom: 30px;">AIとマップアプリを作ってみる</h2>
+                <p style="font-size: 1.5rem; color: var(--text-muted); margin-bottom: 50px;">Leafletを使ったWeb GISとオープンデータの活用</p>
+                
+                <div class="highlight-box" style="text-align: left; max-width: 700px; margin: 0 auto; background: #f0f7ff; border-left-color: var(--primary-color);">
+                    <h3 style="margin-top: 0; color: var(--primary-color);">本日の内容</h3>
+                    <ul>
+                        <li><strong>GitHub Pages</strong> を使ってWebアプリを世界に公開する</li>
+                        <li><strong>Leaflet.js</strong> と <strong>OpenStreetMap</strong> の基本操作</li>
+                        <li>志賀町のオープンデータ（CSV）を読み込んで地図上にプロットする</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- スライド 2: GitHub Pages -->
+        <section class="slide">
+            <h2>Step 1：GitHub Pagesでホスティング</h2>
+            <p>今回作成するマップアプリは、各自のGitHubアカウントを使って<strong>「GitHub Pages」</strong>というサービスでWeb上に公開（ホスティング）します。<br>
+            これにより、URLさえ知っていれば誰でもあなたのアプリにアクセスできるようになります。</p>
+
+            <div class="highlight-box" style="background: #fff8e1; border-left-color: #ffb300;">
+                <h3 style="margin-top:0; color: #d97706;">⚠️ セキュリティに関する超重要事項</h3>
+                <p>GitHub Pagesは<strong>「静的サイトを無料でホスティングできる」</strong>強力なツールですが、<strong>リポジトリ（ソースコード）は基本的に全世界に公開されます。</strong></p>
+                <ul style="color: #b45309; font-weight: bold; margin-bottom: 0;">
+                    <li>本名、電話番号、非公開の業務データ（個人情報）を含めないこと</li>
+                    <li>APIキーやパスワードをコード内に直接書き込まないこと</li>
+                </ul>
+            </div>
+
+            <p>これ以降のスライドで紹介するコードは、コピペして <code class="inline">index.html</code> として保存し、GitHubにプッシュして動作を確認しましょう。</p>
+        </section>
+
+        <!-- スライド 3: Leaflet入門 -->
+        <section class="slide">
+            <h2>Step 2：Leaflet入門（基本機能）</h2>
+            <p><strong>Leaflet（リーフレット）</strong> は、JavaScriptで記述できる軽量で人気のある地図ライブラリです。<br>
+            背景の地図データには、誰でも自由に編集・利用できる「地図のWikipedia」こと <strong>OpenStreetMap</strong> を使用します。</p>
+            <p>以下のコードは、マーカー、ポップアップ、ライン、カスタムアイコンに加えて、<strong>レイヤの切り替え機能（Layer Control）</strong>など、基本的な機能を網羅したテンプレートです。</p>
+
+            <div class="split-view">
+                <div>
+                    <div class="code-wrapper">
+                        <div class="code-header">
+                            <span>index.html (Leaflet基本)</span>
+                            <button class="btn btn-outline" style="padding: 2px 10px; font-size: 0.8rem;" onclick="copyCode(this, 'code-leaflet-basic')">コピー</button>
+                        </div>
+                        <pre><code id="code-leaflet-basic" data-preview-target="preview-leaflet-basic">&lt;!DOCTYPE html&gt;
+&lt;html lang="ja"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;Leaflet入門マップ&lt;/title&gt;
+    &lt;!-- LeafletのCSSを読み込み --&gt;
+    &lt;link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /&gt;
+    &lt;style&gt;
+        body { margin: 0; padding: 0; }
+        #map { width: 100vw; height: 100vh; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div id="map"&gt;&lt;/div&gt;
+
+    &lt;!-- LeafletのJSを読み込み --&gt;
+    &lt;script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"&gt;&lt;/script&gt;
+    &lt;script&gt;
+        // 1. 地図の初期化
+        var map = L.map('map').setView([37.004365, 136.775708], 11);
+
+        // 2. 背景地図（OpenStreetMap）の追加
+        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&amp;copy; &lt;a href="https://www.openstreetmap.org/copyright"&gt;OpenStreetMap&lt;/a&gt; contributors'
+        }).addTo(map);
+
+        // 3. マーカーとポップアップの作成（後でレイヤにまとめるため変数に入れる）
+        var normalMarker = L.marker([37.004365, 136.775708])
+            .bindPopup('&lt;b&gt;高浜バスターミナル&lt;/b&gt;&lt;br&gt;志賀町の中心地付近です。');
+
+        // 4. カスタムアイコンを使ったマーカー
+        var redIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+        });
+        var customMarker = L.marker([37.140558, 136.725355], {icon: redIcon})
+            .bindPopup('道の駅とぎ海街道（カスタムアイコン）');
+
+        // 5. ライン（線）を引く
+        var latlngs = [
+            [37.004365, 136.775708],
+            [37.140558, 136.725355]
+        ];
+        var routeLine = L.polyline(latlngs, {color: 'red', weight: 4, opacity: 0.7});
+
+        // 6. 複数の要素を「レイヤグループ」にまとめる
+        var myFeatures = L.layerGroup([normalMarker, customMarker, routeLine]).addTo(map);
+
+        // 7. レイヤコントロール（右上の切り替えスイッチ）を追加
+        var baseMaps = {
+            "基本マップ (OSM)": osm
+        };
+        var overlayMaps = {
+            "表示アイテム": myFeatures
+        };
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+        // 初期状態でポップアップを開く
+        normalMarker.openPopup();
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+                    </div>
+                </div>
+                <div>
+                    <div class="preview-wrapper">
+                        <div class="preview-header">ブラウザでの表示（プレビュー）</div>
+                        <iframe id="preview-leaflet-basic" class="preview-frame" sandbox="allow-scripts"></iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- スライド 4: データの準備 -->
+        <section class="slide">
+            <h2>Step 3：オープンデータの準備</h2>
+            <p>地図上に大量のピンを立てるため、今回は志賀町のオープンデータカタログにある「公衆トイレ情報」を使用します。<br>
+            以下のボタンからCSVファイルをダウンロードし、<code class="inline">index.html</code> と<strong>同じフォルダ</strong>に保存してください。</p>
+            
+            <div style="text-align: center; padding: 40px; background: #f1f5f9; border-radius: 12px; margin-top: 20px;">
+                <h3 style="margin-top: 0;">志賀町 公衆トイレ情報 (CSV)</h3>
+                <p>ファイル名：<code class="inline">toilet_shikatown.csv</code></p>
+                <button class="btn btn-success" onclick="downloadToiletCSV()" style="font-size: 1.2rem; padding: 15px 30px;">
+                    トイレデータCSVをダウンロード
+                </button>
+            </div>
+
+            <div class="highlight-box" style="margin-top: 30px;">
+                <p><strong>ディレクトリ構成の確認：</strong> GitHubにプッシュする際も、HTMLファイルとCSVファイルが同じ階層にあることを確認してください。</p>
+            </div>
+        </section>
+
+        <!-- スライド 5: CSVをプロット -->
+        <section class="slide">
+            <h2>Step 4：CSVデータを地図にプロットする</h2>
+            <p>JavaScriptの <code class="inline">fetch</code> 関数を使って、同じフォルダにあるCSVを読み込み、ループ処理で全てのトイレを地図上にプロットします。<br>
+            ポップアップには、男性・女性トイレの数も表示させています。</p>
+
+            <div class="split-view">
+                <div>
+                    <div class="code-wrapper">
+                        <div class="code-header">
+                            <span>index.html (CSV読み込み版)</span>
+                            <button class="btn btn-outline" style="padding: 2px 10px; font-size: 0.8rem;" onclick="copyCode(this, 'code-csv-plot')">コピー</button>
+                        </div>
+                        <pre><code id="code-csv-plot" data-preview-target="preview-csv-plot">&lt;!DOCTYPE html&gt;
+&lt;html lang="ja"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;志賀町トイレマップ&lt;/title&gt;
+    &lt;link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /&gt;
+    &lt;style&gt;
+        body { margin: 0; padding: 0; }
+        #map { width: 100vw; height: 100vh; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div id="map"&gt;&lt;/div&gt;
+
+    &lt;script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"&gt;&lt;/script&gt;
+    &lt;script&gt;
         var map = L.map('map').setView([37.08, 136.75], 11);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
+            attribution: '&amp;copy; OpenStreetMap contributors'
         }).addTo(map);
 
         // 同じフォルダにあるCSVファイルを読み込む
         fetch('./toilet_shikatown.csv')
-            .then(response => response.text())
-            .then(text => {
+            .then(response =&gt; response.text())
+            .then(text =&gt; {
                 // 行ごとに分割
                 const rows = text.split('\n');
                 
                 // 1行目はヘッダーなので、2行目(i=1)からループ処理
-                for (let i = 1; i < rows.length; i++) {
+                for (let i = 1; i &lt; rows.length; i++) {
                     if (!rows[i].trim()) continue; // 空行はスキップ
                     
                     const cols = rows[i].split(',');
@@ -41,18 +481,166 @@
                     const barrierFree = cols[9];
                     
                     // 緯度経度が正しく取得できた場合のみマーカーを設置
-                    if (!isNaN(lat) && !isNaN(lng)) {
+                    if (!isNaN(lat) &amp;&amp; !isNaN(lng)) {
                         const popupHtml = `
-                            <b style="color:#0B67B2; font-size:1.1em;">${name}</b><br>
-                            <hr style="margin:5px 0;">
-                            男性用: ${maleCount} / 女性用: ${femaleCount}<br>
+                            &lt;b style="color:#0B67B2; font-size:1.1em;"&gt;${name}&lt;/b&gt;&lt;br&gt;
+                            &lt;hr style="margin:5px 0;"&gt;
+                            男性用: ${maleCount} / 女性用: ${femaleCount}&lt;br&gt;
                             バリアフリー: ${barrierFree}
                         `;
                         L.marker([lat, lng]).addTo(map).bindPopup(popupHtml);
                     }
                 }
             })
-            .catch(error => console.error('CSV読み込みエラー:', error));
+            .catch(error =&gt; console.error('CSV読み込みエラー:', error));
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+                    </div>
+                </div>
+                <div>
+                    <div class="preview-wrapper">
+                        <div class="preview-header">ブラウザでの表示（プレビュー）</div>
+                        <!-- ※スライドのJSでダミーデータを流し込んでプレビューを動作させています -->
+                        <iframe id="preview-csv-plot" class="preview-frame" sandbox="allow-scripts"></iframe>
+                    </div>
+                </div>
+            </div>
+            
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 10px;">
+                ※実際のPC（ローカル環境）でHTMLをダブルクリックして開くと、セキュリティ制約（CORSエラー）により <code>fetch</code> がブロックされます。<br>GitHub Pagesにプッシュして、Web上のURLから動作を確認してください。（右のプレビュー枠はシミュレーション用に動作させています）
+            </p>
+        </section>
+
+        <!-- スライド 6: 演習課題 -->
+        <section class="slide">
+            <h2>演習課題：オープンデータマップを作ろう</h2>
+            <p>今回の知識を使って、あなたオリジナルのマップアプリを作成し、GitHub Pagesで公開してみましょう。</p>
+            
+            <div class="highlight-box">
+                <h3 style="margin-top: 0; color: var(--primary-color);">課題内容：AEDと観光施設の重ね合わせマップ</h3>
+                <ol>
+                    <li>志賀町の「AED設置箇所一覧」と「観光施設一覧」の2つのCSVデータを読み込む。</li>
+                    <li><strong>レイヤ機能：</strong> 2つのデータを別々のレイヤグループとして地図にプロットし、初期表示は両方オン、右上のコントロールからオン/オフを切り替えられるようにする。</li>
+                    <li><strong>応用（Googleマップ連携）：</strong> 各マーカーのポップアップ内に「ここに行く」ボタンを配置し、クリックするとGoogleマップの経路検索（ナビ）が別タブで開くようにする。<br>
+                    <small style="color: #64748b;">※ヒント: GoogleマップのURLは <code style="background:#eee; padding:2px 4px; border-radius:3px;">https://www.google.com/maps/dir/?api=1&destination=緯度,経度</code> を使用します。</small></li>
+                </ol>
+            </div>
+
+            <p><strong>AIへのプロンプト例：</strong></p>
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 15px; border-radius: 4px; font-family: monospace;">
+                以下のLeafletマップアプリのコードをベースに、新しい機能を追加してください。<br>
+                1. 2つのCSV「aed_locations.csv」「sightseeing.csv」を読み込んでください。<br>
+                2. それぞれ別のレイヤグループとして地図に追加し、L.control.layersを使ってチェックボックスで表示/非表示を切り替えられるようにしてください。初期状態は両方表示（オン）です。<br>
+                3. 各マーカーのポップアップには、施設名の他に「ここに行く」というボタンを設置し、Googleマップの経路検索（destination=緯度,経度）が別タブで開くようにしてください。<br>
+                <br>
+                [ここにStep 4のHTMLコードを貼り付ける]
+            </div>
+        </section>
+
+    </div>
+
+    <!-- コントロールエリア -->
+    <div class="controls">
+        <button id="prevBtn" class="btn" onclick="prevSlide()" disabled>← 前へ</button>
+        <div id="pageIndicator" class="page-indicator">1 / 6</div>
+        <button id="nextBtn" class="btn" onclick="nextSlide()">次へ →</button>
+    </div>
+
+    <script>
+        // スライドナビゲーション
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pageIndicator = document.getElementById('pageIndicator');
+        const container = document.querySelector('.slide-container');
+
+        function updateSlide() {
+            slides.forEach((slide, index) => slide.classList.toggle('active', index === currentSlide));
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            pageIndicator.textContent = `${currentSlide + 1} / ${slides.length}`;
+            container.scrollTop = 0;
+        }
+
+        function nextSlide() { if (currentSlide < slides.length - 1) { currentSlide++; updateSlide(); } }
+        function prevSlide() { if (currentSlide > 0) { currentSlide--; updateSlide(); } }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        // 埋め込み用トイレデータ（プレビューとダウンロードで使用）
+        const toiletCSVData = "名称,名称_カナ,名称_英語,所在地_連結標記,設置位置,緯度,経度,男性トイレ総数,女性トイレ総数,バリアフリートイレ数,車椅子使用者用トイレ有無,乳幼児用設備設置トイレ有無,オストメイト設置トイレ有無\n" +
+            "道の駅とぎ海街道,ミチノエキトギウミカイドウ,michinoekitogiumikaido,石川県羽咋郡志賀町富来領家町タ2-11,駐車場入口横,37.140558,136.725355,4,4,2,有,無,有\n" +
+            "高浜バスターミナル,タカハマバスターミナル,takahamabasutaminaru,石川県羽咋郡志賀町高浜町ク50-4,待合室横,37.004365,136.775708,5,2,1,有,無,無\n" +
+            "せせらぎ自然公園,セセラギシゼンコウエン,seseragishizenkoen,石川県羽咋郡志賀町直海な1,公園内,37.077178,136.774429,3,2,1,有,無,無\n" +
+            "柴木総合公園,シバキソウゴウコウエン,shibakisogokoen,石川県羽咋郡志賀町高浜町ヨ1-1,公園内,37.009984,136.776886,3,1,1,有,有,無\n" +
+            "みらいとうぶ公園,ミライトウブコウエン,miraitobukoen,石川県羽咋郡志賀町福野耕500-1,駐車場付近,37.002465,136.78449,3,2,1,有,有,有\n" +
+            "志賀ロードパーク,シカロードパーク,shikarodopaku,石川県羽咋郡志賀町堀松5-38-11,駐車場付近,37.031327,136.780948,3,2,1,有,無,無\n" +
+            "巌門クリフパーク（牛下）,ガンモンクリフパーク,gammonkurifupaku,石川県羽咋郡志賀町牛下チ6-1,駐車場付近,37.099246,136.730677,3,2,2,有,無,無\n" +
+            "巌門クリフパーク（巌門）,ガンモンクリフパーク,gammonkurifupaku,石川県羽咋郡志賀町牛下ル6-2,駐車場付近,37.095368,136.728062,5,4,1,有,無,無\n" +
+            "笹波美知の駅,ササナミミチノエキ,sasanamimichinoeki,石川県羽咋郡志賀町笹波ス18-1,敷地内,37.217721,136.696567,2,2,0,無,無,無\n" +
+            "米町休憩所（自転車休憩施設）,コンマチキュウケイジョ,kommachikyukeijo,石川県羽咋郡志賀町米町タ28-22,敷地内,37.058105,136.778501,4,2,0,無,無,無\n" +
+            "三明休憩所（自転車休憩施設）,サンミョウキュウケイジョ,sammyokyukeijo,石川県羽咋郡志賀町三明チ47-5,駐車場付近,37.090173,136.764902,4,2,0,無,無,無\n" +
+            "甘田農村公園,アマダノウソンコウエン,amadanosonkoen,石川県羽咋郡志賀町甘田ロ24-2,公園内,36.968727,136.77375,0,0,0,無,無,無\n" +
+            "代田農村公園,シナンタノウソンコウエン,shinantanosonkoen,石川県羽咋郡志賀町代田ル17,公園内,37.055324,136.818767,0,0,0,無,無,無\n" +
+            "徳田農村公園,トクダノウソンコウエン,tokudanosonkoen,石川県羽咋郡志賀町徳田れ20-2,公園内,37.051313,136.832427,0,0,0,無,無,無\n" +
+            "風戸農村公園,フトノウソンコウエン,futonosonkoen,石川県羽咋郡志賀町西海風戸改135,公園内,37.14137,136.692811,0,0,0,無,無,無\n" +
+            "西浦農村公園,ニシウラノウソンコウエン,nishiuranosonkoen,石川県羽咋郡志賀町鹿頭へ144,公園内,37.181566,136.680602,2,1,0,無,無,無\n" +
+            "滝ノ澗公園,タキノマコウエン,takinomakoen,石川県羽咋郡志賀町西海風無ソ65番合併,公園内,37.141328,136.685855,1,0,0,無,無,無\n" +
+            "増穂浦林間広場管理棟,マスホウラリンカンヒロバカンリトウ,masuhorarinkanhirobakanrito,石川県羽咋郡志賀町富来領家町甲24-1,管理棟内,37.141892,136.723356,2,2,0,無,無,無\n" +
+            "荒木ケ丘山村広場,アラキガオカサンソンヒロバ,arakigaokasansonhiroba,石川県羽咋郡志賀町富来地頭町9字-38,広場内,37.134798,136.731268,4,3,0,無,無,無\n" +
+            "志賀町テニスコート,シカマチテニスコート,shikamachitenisukoto,石川県羽咋郡志賀町矢蔵谷ラ2-82,管理棟横,37.018146,136.768038,3,2,1,有,無,無\n" +
+            "志賀町陸上競技場,シカマチリクジョウキョウギジョウ,shikamachirikujokyogijo,石川県羽咋郡志賀町町ヘ1-1,入口横,37.023521,136.762693,6,4,1,有,有,有\n" +
+            "ニュースポーツの丘,ニュースポーツノオカ,nyusupotsunoka,石川県羽咋郡志賀町字安部屋亥の部,物置横,37.025476,136.761076,2,1,0,無,無,無\n" +
+            "福浦みなと会館,フクラミナトカイカン,fukuraminatokaikan,石川県羽咋郡志賀町福浦港浦42-1,会館内,37.081454,136.723837,4,3,0,無,無,無";
+
+        function initPreviews() {
+            // 基本のLeafletマップ
+            const codeBasic = document.getElementById('code-leaflet-basic');
+            const iframeBasic = document.getElementById('preview-leaflet-basic');
+            if (iframeBasic && codeBasic) iframeBasic.srcdoc = codeBasic.textContent;
+
+            // CSV読み込みのマップ (プレビューのfetchをモックして動作させるハック)
+            const codeCsv = document.getElementById('code-csv-plot');
+            const iframeCsv = document.getElementById('preview-csv-plot');
+            if (iframeCsv && codeCsv) {
+                let html = codeCsv.textContent;
+                // iframe内では実際のfetchがCORSで失敗するため、Promiseにすり替える
+                const mockFetch = `Promise.resolve({text: () => Promise.resolve(\`${toiletCSVData}\`)})`;
+                html = html.replace("fetch('./toilet_shikatown.csv')", mockFetch);
+                iframeCsv.srcdoc = html;
+            }
+        }
+
+        function downloadToiletCSV() {
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // UTF-8 BOM
+            const blob = new Blob([bom, toiletCSVData], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = "toilet_shikatown.csv"; a.click();
+        }
+
+        function copyCode(btn, targetId) {
+            const text = document.getElementById(targetId).textContent;
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            const oldText = btn.textContent;
+            btn.textContent = 'コピー完了！';
+            setTimeout(() => btn.textContent = oldText, 2000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSlide();
+            initPreviews();
+        });
     </script>
 </body>
 </html>
