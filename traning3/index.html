@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>志賀町トイレマップ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([37.08, 136.75], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // 同じフォルダにあるCSVファイルを読み込む
+        fetch('./toilet_shikatown.csv')
+            .then(response => response.text())
+            .then(text => {
+                // 行ごとに分割
+                const rows = text.split('\n');
+                
+                // 1行目はヘッダーなので、2行目(i=1)からループ処理
+                for (let i = 1; i < rows.length; i++) {
+                    if (!rows[i].trim()) continue; // 空行はスキップ
+                    
+                    const cols = rows[i].split(',');
+                    const name = cols[0];
+                    const lat = parseFloat(cols[5]); // 緯度
+                    const lng = parseFloat(cols[6]); // 経度
+                    
+                    const maleCount = cols[7];
+                    const femaleCount = cols[8];
+                    const barrierFree = cols[9];
+                    
+                    // 緯度経度が正しく取得できた場合のみマーカーを設置
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        const popupHtml = `
+                            <b style="color:#0B67B2; font-size:1.1em;">${name}</b><br>
+                            <hr style="margin:5px 0;">
+                            男性用: ${maleCount} / 女性用: ${femaleCount}<br>
+                            バリアフリー: ${barrierFree}
+                        `;
+                        L.marker([lat, lng]).addTo(map).bindPopup(popupHtml);
+                    }
+                }
+            })
+            .catch(error => console.error('CSV読み込みエラー:', error));
+    </script>
+</body>
+</html>
