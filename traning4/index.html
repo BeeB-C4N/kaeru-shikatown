@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>#4 AIとデータの読み込み・出力機能</title>
+    <style>
+        /* 志賀町カラーをベースにしたテーマ設定 */
+        :root {
+            --primary-color: #0B67B2;
+            --primary-hover: #09508A;
+            --secondary-color: #69B340;
+            --accent-color: #F0820F;
+            --bg-color: #f8fafc;
+            --slide-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --code-bg: #1e1e1e;
+            --code-text: #d4d4d4;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            line-height: 1.6;
+        }
+
+        /* ヘッダーエリア */
+        header {
+            background-color: var(--slide-bg);
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(11, 103, 178, 0.1);
+            border-bottom: 3px solid var(--secondary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .course-title {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        /* スライドエリア */
+        .slide-container {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            max-width: 1300px;
+            margin: 0 auto;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .slide {
+            display: none;
+            background: var(--slide-bg);
+            border-radius: 12px;
+            border-top: 4px solid var(--primary-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 40px 50px;
+            min-height: 100%;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* タイポグラフィ */
+        .slide h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slide h2::before {
+            content: "";
+            display: block;
+            width: 8px;
+            height: 32px;
+            background-color: var(--accent-color);
+            border-radius: 4px;
+        }
+
+        .slide h3 {
+            font-size: 1.4rem;
+            margin: 25px 0 15px 0;
+            color: var(--secondary-color);
+        }
+
+        .slide p { margin-bottom: 15px; font-size: 1.1rem; }
+        .slide ul, .slide ol { margin-bottom: 20px; padding-left: 30px; font-size: 1.1rem; }
+        .slide li { margin-bottom: 8px; }
+
+        /* コントロールエリア (下部) */
+        .controls {
+            background: var(--slide-bg);
+            height: 70px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.02);
+            z-index: 10;
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: var(--border-color);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--accent-color);
+            border: 2px solid var(--accent-color);
+        }
+
+        .btn-success { background: var(--secondary-color); }
+
+        .page-indicator {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            background: #f1f5f9;
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        /* 分割レイアウト */
+        .split-view {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            align-items: stretch;
+            height: 520px;
+        }
+
+        .split-view > div {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* コードブロック */
+        .code-wrapper {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2d2d2d;
+            padding: 8px 15px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #fff;
+            border-bottom: 1px solid #444;
+        }
+
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            margin: 0;
+            padding: 15px;
+            overflow-y: auto;
+            overflow-x: auto;
+            font-family: Consolas, Monaco, "Courier New", monospace;
+            font-size: 0.8rem;
+            flex-grow: 1;
+            line-height: 1.4;
+        }
+
+        /* プレビュー */
+        .preview-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            background: #eee;
+        }
+
+        .preview-header {
+            background: #f8fafc;
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .preview-frame {
+            width: 100%;
+            flex-grow: 1;
+            border: none;
+            background: white;
+        }
+
+        /* ユーティリティ */
+        .highlight-box {
+            background: #f0fdf4;
+            border-left: 4px solid var(--secondary-color);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        code.inline {
+            background: #eee;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #d946ef;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>#4 AIとデータの読み込み・出力機能</h1>
+        <div class="course-title">LGWAN環境 Webアプリ開発研修</div>
+    </header>
+
+    <div class="slide-container">
+
+        <!-- スライド 1: タイトル -->
+        <section class="slide active">
+            <div style="text-align: center; margin-top: 10vh;">
+                <h2 style="border: none; justify-content: center; font-size: 3.5rem; color: var(--primary-color); margin-bottom: 30px;">AIとデータの読み込み・出力機能</h2>
+                <p style="font-size: 1.5rem; color: var(--text-muted); margin-bottom: 50px;">スプレッドシート連携とデータダッシュボード化</p>
+                
+                <div class="highlight-box" style="text-align: left; max-width: 700px; margin: 0 auto; background: #f0f7ff; border-left-color: var(--primary-color);">
+                    <h3 style="margin-top: 0; color: var(--primary-color);">本日の内容</h3>
+                    <ul>
+                        <li><strong>Googleスプレッドシート</strong>のデータをCSV形式でWebアプリに読み込む</li>
+                        <li><strong>Chart.js</strong> を使ったデータの可視化（円グラフ、棒グラフなど）</li>
+                        <li>情報を整理する<strong>「タブ切替」</strong>などのダッシュボードUIの構築</li>
+                        <li>作成したレポートを<strong>PDFとして出力（保存）</strong>する機能の実装</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- スライド 2: データの可視化とダッシュボード -->
+        <section class="slide">
+            <h2>Step 1：データの可視化とダッシュボードUI</h2>
+            <p>大量のデータを直感的に理解するためには、グラフ化と整理された画面（ダッシュボード）が必要です。</p>
+            
+            <div class="highlight-box">
+                <h3 style="margin-top:0;">Chart.js による多彩な表現</h3>
+                <p>JavaScriptでグラフを描画する際、最もよく使われるライブラリの一つが <strong>Chart.js</strong> です。<br>
+                棒グラフ（Bar）、折れ線グラフ（Line）、円グラフ（Pie / Doughnut）といった基本のグラフはもちろん、<strong>「棒グラフと折れ線の重ね合わせ（Mixed Chart）」</strong>など高度な表現も可能です。</p>
+            </div>
+
+            <div class="highlight-box" style="background: #fff8e1; border-left-color: #ffb300;">
+                <h3 style="margin-top:0;">インタラクティブなUI（タブとスライダー）</h3>
+                <p>ダッシュボードには多くの情報を詰め込むため、以下のようなUI（ユーザーインターフェース）が非常に有効です。</p>
+                <ul>
+                    <li><strong>タブ切替：</strong> HTMLとJavaScriptを使って表示領域を切り替える。</li>
+                    <li><strong>スライダー設定：</strong> 期間や件数をスライダーで変更し、リアルタイムにグラフを再描画する。</li>
+                </ul>
+            </div>
+            
+            <p>AIにプロンプトを投げる際は、<strong>「Chart.jsで棒グラフと折れ線を重ね合わせ、スライダーで期間を変更できるようにして」</strong>と指示すると、自動で複雑なコードを組んでくれます。</p>
+        </section>
+
+        <!-- スライド 3: PDF出力機能 -->
+        <section class="slide">
+            <h2>Step 2：レポートのPDF出力</h2>
+            <p>Web上で作成したダッシュボードやレポートを、会議資料として配布・保存するためにPDF化する機能をつけます。</p>
+
+            <div style="display: flex; gap: 20px; margin-top: 20px;">
+                <div style="flex: 1; padding: 20px; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <h3 style="color: var(--primary-color); margin-top: 0;">方法A：標準の印刷機能（簡単）</h3>
+                    <p>JavaScriptの <code class="inline">window.print()</code> を呼び出すと、ブラウザの印刷ダイアログが開きます。そこから「PDFとして保存」を選ぶ方法です。<br>手軽ですが、印刷時のデザイン崩れを防ぐためにCSS（@media print）の調整が必要です。</p>
+                </div>
+                <div style="flex: 1; padding: 20px; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <h3 style="color: var(--secondary-color); margin-top: 0;">方法B：html2pdf.js（高度）</h3>
+                    <p>Webページの指定したHTML要素を、画像に変換してからPDF化してくれる強力なライブラリです。<br>画面で見ているままのデザインでPDF化できるため、ダッシュボードの出力に非常に適しています。</p>
+                </div>
+            </div>
+
+            <div class="highlight-box" style="margin-top: 30px;">
+                <p>今回は、よりレポート出力に適した <strong>html2pdf.js</strong> を使った実装デモを行います。</p>
+            </div>
+        </section>
+
+        <!-- スライド 4: ダッシュボード完成版 -->
+        <section class="slide">
+            <h2>実装：志賀町人口ダッシュボード</h2>
+            <p>Googleスプレッドシートからデータを取得し、「重ね合わせグラフ」「円グラフ」の描画、スライダーによる期間変更、そしてPDF出力を統合した完成版コードです。</p>
+
+            <div class="split-view">
+                <div>
+                    <div class="code-wrapper">
+                        <div class="code-header">
+                            <span>dashboard.html</span>
+                            <button class="btn btn-outline" style="padding: 2px 10px; font-size: 0.8rem;" onclick="copyCode(this, 'code-dashboard')">コピー</button>
+                        </div>
+                        <pre><code id="code-dashboard" data-preview-target="preview-dashboard">&lt;!DOCTYPE html&gt;
+&lt;html lang="ja"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;志賀町 人口ダッシュボード&lt;/title&gt;
+    &lt;!-- 必要なライブラリの読み込み --&gt;
+    &lt;script src="https://cdn.jsdelivr.net/npm/chart.js"&gt;&lt;/script&gt;
+    &lt;script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"&gt;&lt;/script&gt;
+    &lt;style&gt;
+        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; margin: 0; }
+        .container { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 900px; margin: 0 auto; }
+        h1 { color: #0B67B2; border-bottom: 2px solid #0B67B2; padding-bottom: 10px; font-size: 1.5rem; margin-top: 0; }
+        
+        /* スライダーとタブのスタイル */
+        .controls { background: #f8fafc; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .tab-buttons { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tab-btn { padding: 8px 16px; cursor: pointer; background: #e2e8f0; border: none; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        .tab-btn.active { background: #0B67B2; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* グラフレイアウト */
+        .chart-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .chart-box { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 15px; }
+        .chart-wrapper { height: 250px; position: relative; width: 100%; }
+        
+        /* データテーブル */
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background: #f8fafc; }
+        
+        .print-btn { background: #F0820F; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-top: 20px; font-weight: bold; width: 100%; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+    &lt;div class="container" id="report-content"&gt;
+        &lt;h1&gt;志賀町 人口統計ダッシュボード&lt;/h1&gt;
+        
+        &lt;!-- スライダー領域（PDF印刷時は非表示にする） --&gt;
+        &lt;div class="controls" data-html2canvas-ignore&gt;
+            &lt;label for="periodSlider" style="font-weight: bold;"&gt;表示期間：直近 &lt;span id="periodLabel" style="color:#0B67B2; font-size:1.2rem;"&gt;--&lt;/span&gt; ヶ月&lt;/label&gt;
+            &lt;input type="range" id="periodSlider" min="1" max="1" value="1" style="width: 100%; margin-top: 10px;" oninput="updateDashboard()"&gt;
+        &lt;/div&gt;
+
+        &lt;!-- タブボタン --&gt;
+        &lt;div class="tab-buttons" data-html2canvas-ignore&gt;
+            &lt;button class="tab-btn active" onclick="switchTab('tab-charts')"&gt;統計グラフ&lt;/button&gt;
+            &lt;button class="tab-btn" onclick="switchTab('tab-table')"&gt;データ表&lt;/button&gt;
+        &lt;/div&gt;
+
+        &lt;!-- タブ1: グラフ表示領域 --&gt;
+        &lt;div id="tab-charts" class="tab-content active"&gt;
+            &lt;div class="chart-grid"&gt;
+                &lt;div class="chart-box"&gt;
+                    &lt;h3 style="margin-top:0; font-size:1rem;"&gt;出生・死亡数と人口増減（重ね合わせ）&lt;/h3&gt;
+                    &lt;div class="chart-wrapper"&gt;&lt;canvas id="mixedChart"&gt;&lt;/canvas&gt;&lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class="chart-box"&gt;
+                    &lt;h3 style="margin-top:0; font-size:1rem;"&gt;男女比（期間全体）&lt;/h3&gt;
+                    &lt;div class="chart-wrapper"&gt;&lt;canvas id="pieChart"&gt;&lt;/canvas&gt;&lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;!-- タブ2: データ表 --&gt;
+        &lt;div id="tab-table" class="tab-content"&gt;
+            &lt;div id="table-container" style="max-height:300px; overflow-y:auto;"&gt;&lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+    
+    &lt;div class="container" style="background:transparent; box-shadow:none; padding-top:0;"&gt;
+        &lt;button class="print-btn" onclick="exportPDF()"&gt;PDFでレポートを出力する&lt;/button&gt;
+    &lt;/div&gt;
+
+    &lt;script&gt;
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/1GvJulWQ__7_FA2FN_-29T0nKynzoExMKx7qnSRlvpDo/export?format=csv';
+
+        // グラフ用の生データ保持
+        let rawLabels = [], rawPop = [], rawBirth = [], rawDeath = [], rawZougen = [];
+        let rawMaleTotal = 0, rawFemaleTotal = 0;
+        let chartInstances = {};
+
+        // データのフェッチ
+        fetch(csvUrl)
+            .then(res =&gt; res.text())
+            .then(csv =&gt; {
+                const rows = csv.split('\n').slice(1).map(r =&gt; r.split(','));
+                processData(rows);
+            });
+
+        function processData(rows) {
+            const grouped = {};
+            rows.forEach(r =&gt; {
+                const ym = r[0], sex = r[1];
+                if (!ym) return;
+                
+                if (!grouped[ym]) grouped[ym] = { pop: 0, birth: 0, death: 0, zougen: 0 };
+                grouped[ym].pop += parseInt(r[7] || 0);   // 前月末日現在
+                grouped[ym].birth += parseInt(r[3] || 0); // 出生
+                grouped[ym].death += parseInt(r[4] || 0); // 死亡
+                grouped[ym].zougen += parseInt(r[8] || 0); // 増減
+
+                // 男女比用の集計
+                if (sex === '男') rawMaleTotal += parseInt(r[7] || 0);
+                if (sex === '女') rawFemaleTotal += parseInt(r[7] || 0);
+            });
+
+            // 配列に変換
+            for (let ym in grouped) {
+                rawLabels.push(ym);
+                rawPop.push(grouped[ym].pop);
+                rawBirth.push(grouped[ym].birth);
+                rawDeath.push(grouped[ym].death);
+                rawZougen.push(grouped[ym].zougen);
+            }
+
+            // スライダーの初期設定
+            const slider = document.getElementById('periodSlider');
+            slider.max = rawLabels.length;
+            slider.value = rawLabels.length; // 初期は全期間
+
+            buildTable(rows);
+            updateDashboard(); // グラフ初回描画
+        }
+
+        // スライダー連動の再描画処理
+        function updateDashboard() {
+            const count = parseInt(document.getElementById('periodSlider').value);
+            document.getElementById('periodLabel').textContent = count;
+
+            // 末尾から指定月数だけスライス
+            const sLabels = rawLabels.slice(-count);
+            const sBirth = rawBirth.slice(-count);
+            const sDeath = rawDeath.slice(-count);
+            const sZougen = rawZougen.slice(-count);
+
+            drawCharts(sLabels, sBirth, sDeath, sZougen);
+        }
+
+        // グラフ描画 (Chart.js)
+        function drawCharts(labels, birth, death, zougen) {
+            // 古いグラフがあれば破棄
+            if (chartInstances.mixed) chartInstances.mixed.destroy();
+            if (chartInstances.pie) chartInstances.pie.destroy();
+
+            // 複合グラフ (棒グラフ + 折れ線)
+            chartInstances.mixed = new Chart(document.getElementById('mixedChart'), {
+                type: 'bar', // ベースは棒グラフ
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { type: 'line', label: '人口増減(右軸)', data: zougen, borderColor: '#F0820F', backgroundColor: '#F0820F', fill: false, tension: 0.1, yAxisID: 'y1' },
+                        { type: 'bar', label: '出生数(左軸)', data: birth, backgroundColor: '#69B340', yAxisID: 'y' },
+                        { type: 'bar', label: '死亡数(左軸)', data: death, backgroundColor: '#333333', yAxisID: 'y' }
+                    ]
+                },
+                options: { 
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { type: 'linear', display: true, position: 'left', title: { display: true, text: '出生/死亡数' } },
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: '人口増減' }, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+
+            // ドーナツグラフ (男女比)
+            chartInstances.pie = new Chart(document.getElementById('pieChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['男性', '女性'],
+                    datasets: [{ data: [rawMaleTotal, rawFemaleTotal], backgroundColor: ['#0B67B2', '#e11d48'] }]
+                },
+                options: { maintainAspectRatio: false }
+            });
+        }
+
+        function buildTable(rows) {
+            let html = '&lt;table&gt;&lt;tr&gt;&lt;th&gt;年月&lt;/th&gt;&lt;th&gt;性別&lt;/th&gt;&lt;th&gt;人口&lt;/th&gt;&lt;th&gt;出生&lt;/th&gt;&lt;th&gt;死亡&lt;/th&gt;&lt;th&gt;増減&lt;/th&gt;&lt;/tr&gt;';
+            rows.slice(0, 10).forEach(r =&gt; {
+                if(r[0]) html += `&lt;tr&gt;&lt;td&gt;${r[0]}&lt;/td&gt;&lt;td&gt;${r[1]}&lt;/td&gt;&lt;td&gt;${r[7]}&lt;/td&gt;&lt;td&gt;${r[3]}&lt;/td&gt;&lt;td&gt;${r[4]}&lt;/td&gt;&lt;td&gt;${r[8]}&lt;/td&gt;&lt;/tr&gt;`;
+            });
+            html += '&lt;/table&gt;';
+            document.getElementById('table-container').innerHTML = html;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el =&gt; el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el =&gt; el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function exportPDF() {
+            document.querySelectorAll('.tab-content').forEach(el =&gt; el.style.display = 'block'); // 印刷時全開
+            const element = document.getElementById('report-content');
+            const opt = {
+                margin: 10, filename: 'dashboard_report.pdf', image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save().then(() =&gt; {
+                document.querySelectorAll('.tab-content').forEach(el =&gt; el.style.display = ''); // 元に戻す
+            });
+        }
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+                    </div>
+                </div>
+                <div>
+                    <div class="preview-wrapper">
+                        <div class="preview-header">ブラウザでの表示（プレビュー）</div>
+                        <iframe id="preview-dashboard" class="preview-frame" sandbox="allow-scripts allow-downloads"></iframe>
+                    </div>
+                </div>
+            </div>
+            
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 10px;">
+                ※プレビュー上で「スライダー」を動かすとグラフが即座に切り替わります。また「PDFで出力」ボタンを押すと、実際のレポートが出力されます。
+            </p>
+        </section>
+
+        <!-- スライド 5: 演習課題 -->
+        <section class="slide">
+            <h2>演習課題：各自人口ダッシュボードを作ってみよう</h2>
+            <p>先ほどのコードを参考に、AIを使ってあなた独自の「人口ダッシュボード」を作成し、ローカルで動作確認を行ってください。</p>
+            
+            <div class="highlight-box">
+                <h3 style="margin-top: 0; color: var(--primary-color);">課題内容：カスタマイズ</h3>
+                <ol>
+                    <li><strong>レーダーチャートへの変更：</strong> Chart.jsのドキュメントやAIを利用して、全く別のグラフ形式（レーダーチャートなど）を追加してみる。</li>
+                    <li><strong>デザインの変更：</strong> グラフのカラーリングや、線の太さ（tension）などを調整して見やすくする。</li>
+                    <li><strong>集計データの追加：</strong> 上部のヘッダー領域に、全期間の「累計出生数」を計算して大きく表示する。</li>
+                </ol>
+            </div>
+
+            <p><strong>AIへのプロンプト例：</strong></p>
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 15px; border-radius: 4px; font-family: monospace;">
+                以下のスプレッドシートのデータを読み込み、Chart.jsとhtml2pdf.jsを使った「志賀町 人口ダッシュボード」を完全な1つのHTMLファイルで作成してください。<br><br>
+                データURL: https://docs.google.com/spreadsheets/d/1GvJulWQ__7_FA2FN_-29T0nKynzoExMKx7qnSRlvpDo/export?format=csv<br>
+                フォーマット: 年月, 性別, 前々月末日現在, 出生, 死亡, 転入等, 転出等, 前月末日現在, 増減<br><br>
+                【要件】<br>
+                1. 「転入・転出の比較」を棒グラフで表示する新しいタブを追加してください。<br>
+                2. グラフの色を #3b82f6 や #ef4444 などのモダンな色に変更してください。<br>
+                3. 「PDFで出力」ボタンを押すと、すべてのタブの情報が1つのPDFに保存されるようにしてください。
+            </div>
+        </section>
+
+    </div>
+
+    <!-- コントロールエリア -->
+    <div class="controls">
+        <button id="prevBtn" class="btn" onclick="prevSlide()" disabled>← 前へ</button>
+        <div id="pageIndicator" class="page-indicator">1 / 5</div>
+        <button id="nextBtn" class="btn" onclick="nextSlide()">次へ →</button>
+    </div>
+
+    <script>
+        // スライドナビゲーション
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pageIndicator = document.getElementById('pageIndicator');
+        const container = document.querySelector('.slide-container');
+
+        function updateSlide() {
+            slides.forEach((slide, index) => slide.classList.toggle('active', index === currentSlide));
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            pageIndicator.textContent = `${currentSlide + 1} / ${slides.length}`;
+            container.scrollTop = 0;
+        }
+
+        function nextSlide() { if (currentSlide < slides.length - 1) { currentSlide++; updateSlide(); } }
+        function prevSlide() { if (currentSlide > 0) { currentSlide--; updateSlide(); } }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        // プレビュー初期化
+        function initPreviews() {
+            const codeDashboard = document.getElementById('code-dashboard');
+            const iframeDashboard = document.getElementById('preview-dashboard');
+            if (iframeDashboard && codeDashboard) {
+                let html = codeDashboard.textContent;
+                
+                // プレビューでのCORSエラーを回避するため、fetchをモックデータに置換してシミュレーションする
+                // スライダーの変化を分かりやすくするため、モックデータを少し増やしています
+                const mockCsvData = "年月,性別,前々月末日現在,出生,死亡,転入等,転出等,前月末日現在,増減\\n" +
+                    "200805,男,,6,17,27,36,11547,24\\n" +
+                    "200805,女,,8,16,22,37,12781,-27\\n" +
+                    "200806,男,11547,5,13,23,20,11543,27\\n" +
+                    "200806,女,12781,6,14,17,18,12773,-13\\n" +
+                    "200807,男,11543,6,12,10,22,11525,18\\n" +
+                    "200807,女,12773,4,17,12,20,12752,-20\\n" +
+                    "200808,男,11525,4,15,22,17,11519,19\\n" +
+                    "200808,女,12752,2,20,20,24,12730,-18\\n" +
+                    "200809,男,11519,4,16,6,16,11497,15\\n" +
+                    "200809,女,12730,8,11,11,16,12722,-11\\n" +
+                    "200810,男,11497,7,12,12,22,11483,11\\n" +
+                    "200810,女,12722,8,12,10,15,12713,-19\\n" +
+                    "200811,男,11483,5,14,17,26,11465,30\\n" +
+                    "200811,女,12713,4,11,14,23,12697,-14\\n" +
+                    "200812,男,11465,3,22,13,21,11438,20\\n" +
+                    "200812,女,12697,5,18,10,20,12684,-13\\n" +
+                    "200901,男,11438,4,15,20,10,11447,9\\n" +
+                    "200901,女,12684,6,10,15,12,12683,-1\\n" +
+                    "200902,男,11447,8,10,12,15,11442,-5\\n" +
+                    "200902,女,12683,5,12,8,10,12674,-9\\n" +
+                    "200903,男,11442,5,18,25,30,11424,-18\\n" +
+                    "200903,女,12674,7,15,20,25,12661,-13";
+                
+                const mockFetch = `Promise.resolve({text: () => Promise.resolve(\`${mockCsvData}\`)})`;
+                html = html.replace('fetch(csvUrl)', mockFetch);
+                
+                iframeDashboard.srcdoc = html;
+            }
+        }
+
+        function copyCode(btn, targetId) {
+            const text = document.getElementById(targetId).textContent;
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            const oldText = btn.textContent;
+            btn.textContent = 'コピー完了！';
+            setTimeout(() => btn.textContent = oldText, 2000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSlide();
+            initPreviews();
+        });
+    </script>
+</body>
+</html>
