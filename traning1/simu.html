@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ひとり親・寡婦 判定サポートボット</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* チャットエリアのスクロールバーをカスタマイズ */
+        .chat-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .chat-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 10px;
+        }
+        /* モーダル表示時のボディスクロール防止 */
+        body.modal-open {
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gray-200 h-screen flex items-center justify-center font-sans antialiased text-gray-800">
+
+    <!-- アプリケーションコンテナ -->
+    <div class="w-full h-full sm:h-[90vh] sm:max-w-md bg-gray-50 flex flex-col sm:rounded-2xl sm:shadow-2xl overflow-hidden relative">
+        
+        <!-- ヘッダー -->
+        <header class="bg-blue-600 text-white px-4 py-4 shadow-md z-10 flex items-center gap-3">
+            <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">
+                🤖
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight">税制サポートボット</h1>
+                <p class="text-xs text-blue-200">オンライン</p>
+            </div>
+        </header>
+
+        <!-- チャットエリア -->
+        <main id="chat-container" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4 chat-scroll bg-[#f0f2f5]">
+            <!-- 初期メッセージはJavaScriptで追加されます -->
+        </main>
+
+        <!-- 入力エリア -->
+        <footer class="bg-white px-4 py-3 border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-10">
+            <form id="chat-form" class="flex items-end gap-2" onsubmit="return false;">
+                <textarea 
+                    id="user-input" 
+                    rows="1"
+                    class="flex-1 bg-gray-100 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 resize-none max-h-32 transition-all"
+                    placeholder="質問を入力してください..."
+                ></textarea>
+                <button 
+                    id="send-button"
+                    type="submit" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0 transition-colors shadow-md disabled:bg-gray-400"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </form>
+        </footer>
+    </div>
+
+    <!-- 判定用モーダル -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div id="modal-content" class="bg-white rounded-2xl shadow-2xl w-11/12 max-w-sm p-6 max-h-[85vh] flex flex-col transform scale-95 transition-transform duration-300">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 id="modal-title" class="text-xl font-bold text-gray-800">判定</h2>
+                <button id="modal-close-icon" class="text-gray-400 hover:text-gray-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            
+            <p id="modal-desc" class="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100"></p>
+            
+            <form id="judgment-form" class="flex-1 overflow-y-auto chat-scroll pr-1">
+                <div id="modal-questions" class="flex flex-col gap-3 mb-6">
+                    <!-- ここにチェックボックスがJavaScriptで挿入されます -->
+                </div>
+                <div class="flex gap-3 pt-2 border-t mt-auto">
+                    <button type="button" id="modal-cancel" class="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors">キャンセル</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-md">結果を見る</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+
+        // テキストエリアの高さを自動調整
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if(this.value.trim() === '') {
+                this.style.height = 'auto';
+            }
+        });
+
+        // Enterキーで送信 (Shift+Enterで改行)
+        userInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+
+        chatForm.addEventListener('submit', handleSend);
+
+        // サジェストボタンがクリックされた時の処理
+        window.handleSuggestedQuestion = function(text) {
+            userInput.value = text;
+            handleSend();
+        };
+
+        // メッセージを画面に追加する関数 (HTMLサポート追加)
+        function addMessage(text, isUser, htmlContent = null) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex w-full ${isUser ? 'justify-end' : 'justify-start'}`;
+
+            const msgDiv = document.createElement('div');
+            // ボットの場合は少し幅を広く取る
+            const maxWidth = isUser ? 'max-w-[85%]' : 'max-w-[90%]';
+            
+            msgDiv.className = `${maxWidth} rounded-2xl px-4 py-3 text-sm sm:text-base leading-relaxed shadow-sm ${
+                isUser 
+                    ? 'bg-blue-600 text-white rounded-br-sm whitespace-pre-wrap' 
+                    : 'bg-white text-gray-800 rounded-bl-sm border border-gray-100'
+            }`;
+            
+            if (htmlContent) {
+                msgDiv.innerHTML = htmlContent;
+            } else {
+                msgDiv.textContent = text;
+            }
+            
+            wrapper.appendChild(msgDiv);
+            chatContainer.appendChild(wrapper);
+            
+            // 一番下までスクロール
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // 送信処理
+        function handleSend() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            addMessage(text, true);
+            
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            sendButton.disabled = true;
+            
+            setTimeout(() => {
+                generateResponse(text);
+                sendButton.disabled = false;
+            }, 600);
+        }
+
+        // ボットの回答生成ロジック (HTMLと判定ボタンを生成)
+        function generateResponse(text) {
+            const isHitoriOya = text.includes('ひとり親');
+            const isKafu = text.includes('寡婦');
+
+            if (!isHitoriOya && !isKafu) {
+                const notFoundHtml = `
+                    <div>
+                        <p class="mb-3 text-sm sm:text-base">ご質問ありがとうございます。<br>このボットは「ひとり親」と「寡婦」の条件についてお答えできます。<br>以下のボタンから選ぶか、キーワードを入力してください。</p>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="window.handleSuggestedQuestion('ひとり親について教えて')" class="bg-white border border-blue-300 text-blue-600 px-3 py-1.5 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors shadow-sm">ひとり親について</button>
+                            <button onclick="window.handleSuggestedQuestion('寡婦について教えて')" class="bg-white border border-blue-300 text-blue-600 px-3 py-1.5 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors shadow-sm">寡婦について</button>
+                        </div>
+                    </div>
+                `;
+                addMessage("", false, notFoundHtml);
+                return;
+            }
+
+            let responseHtml = '<div class="space-y-5">'; // 全体を囲むdiv
+
+            if (isHitoriOya) {
+                responseHtml += `
+                    <div>
+                        <div class="font-bold border-b border-gray-200 mb-2 pb-1 text-blue-800">【ひとり親について】</div>
+                        <p class="mb-2 text-sm">次のア～エの<span class="text-red-500 font-bold">すべて</span>に該当する方です。</p>
+                        <ul class="list-none pl-1 text-sm space-y-1.5 mb-3 text-gray-700">
+                            <li class="flex gap-2"><span class="flex-shrink-0 text-gray-400">ア</span><span>現に婚姻をしていないまたは配偶者の生死が不明</span></li>
+                            <li class="flex gap-2"><span class="flex-shrink-0 text-gray-400">イ</span><span>事実上婚姻関係と同様の事情にあると認められる人がいない</span></li>
+                            <li class="flex gap-2"><span class="flex-shrink-0 text-gray-400">ウ</span><span>年間の所得額が48万円以下の子がいる<br><span class="text-xs text-gray-500">（他の人の扶養親族等となる場合は当てはまりません）</span></span></li>
+                            <li class="flex gap-2"><span class="flex-shrink-0 text-gray-400">エ</span><span>年間の所得額が500万円以下である</span></li>
+                        </ul>
+                        <button onclick="window.openJudgmentModal('hitori')" class="w-full mt-2 bg-blue-50 text-blue-600 border border-blue-200 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                            ひとり親の判定をする
+                        </button>
+                    </div>
+                `;
+            }
+            
+            if (isKafu) {
+                responseHtml += `
+                    <div>
+                        <div class="font-bold border-b border-gray-200 mb-2 pb-1 text-blue-800">【寡婦について】</div>
+                        <p class="mb-2 text-sm">ひとり親ではなく、次のア～ウの<span class="text-blue-600 font-bold">いずれか</span>に該当する方です。</p>
+                        <ul class="list-none pl-1 text-sm space-y-1.5 mb-2 text-gray-700">
+                            <li class="flex gap-2"><span class="flex-shrink-0 text-gray-400">ア</span><span>夫と離婚してから婚姻しておらず、扶養親族を有し、年間の所得の見積額が500万円以下であり、事実上婚姻関係と同様の事情にあると認められる人がいない</span></li>
+                            <li class="flex gap-2"><span class="flex-shrink-0 text-gray-400">イ</span><span>夫と死別してから婚姻していない、または夫の生死が不明で、年間の所得の見積額が500万円以下であり、事実上婚姻関係と同様の事情にあると認められる人がいない</span></li>
+                        </ul>
+                        <p class="text-xs text-gray-500 mb-3">（※資料画像上、ウの項目は確認できませんでした）</p>
+                        <button onclick="window.openJudgmentModal('kafu')" class="w-full mt-2 bg-blue-50 text-blue-600 border border-blue-200 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                            寡婦の判定をする
+                        </button>
+                    </div>
+                `;
+            }
+
+            // サジェストの追加
+            if (isHitoriOya && !isKafu) {
+                responseHtml += `
+                    <div class="pt-2 border-t border-gray-200">
+                        <p class="text-xs text-gray-500 mb-2">💡 こちらの条件も確認できます</p>
+                        <button onclick="window.handleSuggestedQuestion('寡婦について教えて')" class="inline-block bg-white border border-blue-300 text-blue-600 px-3 py-1.5 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors shadow-sm">寡婦について</button>
+                    </div>
+                `;
+            } else if (!isHitoriOya && isKafu) {
+                responseHtml += `
+                    <div class="pt-2 border-t border-gray-200">
+                        <p class="text-xs text-gray-500 mb-2">💡 こちらの条件も確認できます</p>
+                        <button onclick="window.handleSuggestedQuestion('ひとり親について教えて')" class="inline-block bg-white border border-blue-300 text-blue-600 px-3 py-1.5 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors shadow-sm">ひとり親について</button>
+                    </div>
+                `;
+            }
+
+            responseHtml += '</div>';
+            addMessage("", false, responseHtml);
+        }
+
+        // --- モーダル・判定に関する処理 ---
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalContent = document.getElementById('modal-content');
+        let currentJudgmentType = '';
+
+        const questionsData = {
+            hitori: {
+                title: 'ひとり親 判定',
+                desc: '以下の項目で、<span class="font-bold text-red-600">該当するものすべて</span>にチェックを入れてください。',
+                questions: [
+                    { id: 'h_a', text: '【ア】現に婚姻をしていない、または配偶者の生死が不明である' },
+                    { id: 'h_b', text: '【イ】事実上婚姻関係と同様の事情にあると認められる人がいない' },
+                    { id: 'h_c', text: '【ウ】年間の所得額が48万円以下の子がいる（他の人の扶養親族等を除く）' },
+                    { id: 'h_d', text: '【エ】自身の年間の所得額が500万円以下である' }
+                ]
+            },
+            kafu: {
+                title: '寡婦 判定',
+                desc: 'ひとり親ではなく、以下の<span class="font-bold text-blue-600">いずれかの条件</span>を満たしているか確認してください。',
+                questions: [
+                    { id: 'k_base', text: '大前提：「ひとり親」の条件には該当しない' },
+                    { id: 'k_a', text: '【ア】夫と離婚後婚姻しておらず、扶養親族がおり、年間所得見積額が500万円以下で、事実婚状態の人がいない' },
+                    { id: 'k_b', text: '【イ】夫と死別後婚姻していない、または夫の生死が不明で、年間所得見積額が500万円以下で、事実婚状態の人がいない' }
+                ]
+            }
+        };
+
+        // グローバル関数として登録（HTML内のonclickから呼ぶため）
+        window.openJudgmentModal = function(type) {
+            currentJudgmentType = type;
+            const data = questionsData[type];
+            
+            document.getElementById('modal-title').textContent = data.title;
+            document.getElementById('modal-desc').innerHTML = data.desc;
+            
+            const questionsContainer = document.getElementById('modal-questions');
+            questionsContainer.innerHTML = '';
+            
+            data.questions.forEach(q => {
+                const label = document.createElement('label');
+                label.className = 'flex items-start gap-3 p-3 bg-gray-50 hover:bg-blue-50 rounded-lg cursor-pointer border border-gray-200 transition-colors';
+                label.innerHTML = `
+                    <input type="checkbox" id="${q.id}" class="mt-1 w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 shadow-sm">
+                    <span class="text-sm text-gray-800 leading-snug">${q.text}</span>
+                `;
+                questionsContainer.appendChild(label);
+            });
+
+            // モーダル表示アニメーション
+            modalOverlay.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+            // 少し遅延させてopacityを変更（トランジション用）
+            setTimeout(() => {
+                modalOverlay.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+            }, 10);
+        };
+
+        function closeModal() {
+            modalOverlay.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modalOverlay.classList.add('hidden');
+                document.body.classList.remove('modal-open');
+            }, 300);
+        }
+
+        // 判定フォームの送信（結果表示）
+        document.getElementById('judgment-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            let isMatch = false;
+            let resultHtml = '';
+
+            if (currentJudgmentType === 'hitori') {
+                const a = document.getElementById('h_a').checked;
+                const b = document.getElementById('h_b').checked;
+                const c = document.getElementById('h_c').checked;
+                const d = document.getElementById('h_d').checked;
+                
+                isMatch = a && b && c && d;
+                
+                if (isMatch) {
+                    resultHtml = `<div class="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                        <div class="flex items-center gap-2 text-blue-800 font-bold mb-2">
+                            <span class="text-xl">✅</span> 判定結果
+                        </div>
+                        <p>チェック内容に基づくと、<br><span class="text-lg font-bold text-blue-700">「ひとり親」に該当します。</span></p>
+                        <p class="text-xs text-gray-600 mt-2">（ア～エのすべての条件を満たしています）</p>
+                    </div>`;
+                } else {
+                    resultHtml = `<div class="bg-gray-50 border border-gray-200 p-4 rounded-xl">
+                        <div class="flex items-center gap-2 text-gray-800 font-bold mb-2">
+                            <span class="text-xl">⚠️</span> 判定結果
+                        </div>
+                        <p>チェック内容に基づくと、<br><span class="font-bold">「ひとり親」には該当しません。</span></p>
+                        <p class="text-xs text-gray-600 mt-2">（該当するには、ア～エすべての条件を満たす必要があります）</p>
+                    </div>`;
+                }
+
+            } else if (currentJudgmentType === 'kafu') {
+                const base = document.getElementById('k_base').checked;
+                const a = document.getElementById('k_a').checked;
+                const b = document.getElementById('k_b').checked;
+                
+                isMatch = base && (a || b);
+                
+                if (!base) {
+                    resultHtml = `<div class="bg-gray-50 border border-gray-200 p-4 rounded-xl">
+                        <div class="flex items-center gap-2 text-gray-800 font-bold mb-2">
+                            <span class="text-xl">⚠️</span> 判定結果
+                        </div>
+                        <p><span class="font-bold">「寡婦」には該当しません。</span></p>
+                        <p class="text-xs text-gray-600 mt-2">（「ひとり親」に該当する場合は、寡婦にはなりません）</p>
+                    </div>`;
+                } else if (isMatch) {
+                    resultHtml = `<div class="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                        <div class="flex items-center gap-2 text-blue-800 font-bold mb-2">
+                            <span class="text-xl">✅</span> 判定結果
+                        </div>
+                        <p>チェック内容に基づくと、<br><span class="text-lg font-bold text-blue-700">「寡婦」に該当します。</span></p>
+                        <p class="text-xs text-gray-600 mt-2">（アまたはイの条件を満たしています）</p>
+                    </div>`;
+                } else {
+                    resultHtml = `<div class="bg-gray-50 border border-gray-200 p-4 rounded-xl">
+                        <div class="flex items-center gap-2 text-gray-800 font-bold mb-2">
+                            <span class="text-xl">⚠️</span> 判定結果
+                        </div>
+                        <p>チェック内容に基づくと、<br><span class="font-bold">「寡婦」には該当しません。</span></p>
+                        <p class="text-xs text-gray-600 mt-2">（該当するには、ア・イいずれかの条件を満たす必要があります）</p>
+                    </div>`;
+                }
+            }
+
+            closeModal();
+            
+            // チャット履歴にユーザーのアクションを追加
+            const typeName = currentJudgmentType === 'hitori' ? 'ひとり親' : '寡婦';
+            addMessage(`「${typeName}」の判定を行いました。`, true);
+            
+            // 結果をボットから送信
+            setTimeout(() => {
+                addMessage("", false, resultHtml);
+            }, 500);
+        });
+
+        // モーダルを閉じるイベント
+        document.getElementById('modal-close-icon').addEventListener('click', closeModal);
+        document.getElementById('modal-cancel').addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', function(e) {
+            if (e.target === modalOverlay) closeModal();
+        });
+
+        // アプリ起動時の初期メッセージ
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const initHtml = `
+                    <div>
+                        <p class="mb-3 text-sm sm:text-base leading-relaxed">こんにちは！<br>画像の資料に基づき、条件についてお答えします。以下のボタンから選ぶか、質問を入力してください。</p>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="window.handleSuggestedQuestion('ひとり親について教えて')" class="bg-white border border-blue-300 text-blue-600 px-3 py-1.5 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors shadow-sm">ひとり親について</button>
+                            <button onclick="window.handleSuggestedQuestion('寡婦について教えて')" class="bg-white border border-blue-300 text-blue-600 px-3 py-1.5 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors shadow-sm">寡婦について</button>
+                        </div>
+                    </div>
+                `;
+                addMessage("", false, initHtml);
+            }, 300);
+        });
+    </script>
+</body>
+</html>
