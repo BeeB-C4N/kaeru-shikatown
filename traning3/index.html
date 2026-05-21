@@ -538,12 +538,37 @@
             </div>
         </section>
 
+        <!-- スライド 7: Googleサイト（今回追記したスライド） -->
+        <section class="slide">
+            <h2>おまけ：Googleサイトを使った公開方法</h2>
+            <p>GitHub Pages以外にも、<strong>Googleサイト</strong>の埋め込み機能を使って手軽にHTMLアプリを公開することができます。</p>
+            
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <ol style="margin-bottom: 0;">
+                    <li><strong>Googleアカウントの準備:</strong> 事前にGoogleアカウントを作成し、ログインしておきます。</li>
+                    <li><strong>Googleサイトを開く:</strong> <a href="https://sites.google.com/" target="_blank" style="color: var(--primary-color);">Googleサイト</a> にアクセスし、「新しいサイトを作成（空白）」を選びます。</li>
+                    <li><strong>全ページコード埋め込み:</strong> 右側のメニューから「埋め込む」を選択し、「コードを埋め込む」タブを開きます。（ページ全体を自作コードにしたい場合は「ページ全体の埋め込み」機能を利用します）</li>
+                    <li><strong>埋め込みコードにペースト:</strong> 用意してあるHTMLコードを枠内にペーストし、「次へ」→「挿入」の順にクリックします。</li>
+                    <li><strong>サイト公開:</strong> 画面右上の「公開」ボタンを押します。好きなウェブアドレスを入力し、再度「公開」を押せば完了です。</li>
+                </ol>
+            </div>
+
+            <div class="highlight-box" style="background: #fff8e1; border-left-color: #ffb300;">
+                <h3 style="margin-top:0; color: #d97706;">⚠️ 注意事項</h3>
+                <ul style="color: #b45309; font-weight: bold; margin-bottom: 0;">
+                    <li>ドメインについて：公開されるURLのドメインは <code>googlesite.com</code>（正確には <code>sites.google.com</code>）となります。</li>
+                    <li>公開タイミングに注意：開発機と本番機が分かれていません。「公開」ボタンを押すと、編集した内容がすぐに本番のサイトに反映されてしまうため注意してください。</li>
+                </ul>
+            </div>
+        </section>
+
     </div>
 
     <!-- コントロールエリア -->
     <div class="controls">
         <button id="prevBtn" class="btn" onclick="prevSlide()" disabled>← 前へ</button>
-        <div id="pageIndicator" class="page-indicator">1 / 6</div>
+        <!-- ページ数を 1 / 7 に修正 -->
+        <div id="pageIndicator" class="page-indicator">1 / 7</div>
         <button id="nextBtn" class="btn" onclick="nextSlide()">次へ →</button>
     </div>
 
