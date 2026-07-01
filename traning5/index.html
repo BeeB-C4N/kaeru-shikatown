@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>#5 最終課題：消防水利マッピングアプリの開発</title>
+    <style>
+        /* 志賀町カラーをベースにしたテーマ設定 */
+        :root {
+            --primary-color: #0B67B2;
+            --primary-hover: #09508A;
+            --secondary-color: #69B340;
+            --accent-color: #F0820F;
+            --bg-color: #f8fafc;
+            --slide-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            line-height: 1.6;
+        }
+
+        /* ヘッダーエリア */
+        header {
+            background-color: var(--slide-bg);
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(11, 103, 178, 0.1);
+            border-bottom: 3px solid var(--secondary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .course-title {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        /* スライドエリア */
+        .slide-container {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .slide {
+            display: none;
+            background: var(--slide-bg);
+            border-radius: 12px;
+            border-top: 4px solid var(--primary-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 40px 50px;
+            min-height: 100%;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* タイポグラフィ */
+        .slide h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slide h2::before {
+            content: "";
+            display: block;
+            width: 8px;
+            height: 32px;
+            background-color: var(--accent-color);
+            border-radius: 4px;
+        }
+
+        .slide h3 {
+            font-size: 1.3rem;
+            margin: 25px 0 10px 0;
+            color: var(--secondary-color);
+        }
+
+        .slide p { margin-bottom: 15px; font-size: 1.1rem; }
+        .slide ul, .slide ol { margin-bottom: 20px; padding-left: 30px; font-size: 1.1rem; }
+        .slide li { margin-bottom: 8px; }
+
+        /* コントロールエリア (下部) */
+        .controls {
+            background: var(--slide-bg);
+            height: 70px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.02);
+            z-index: 10;
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: var(--border-color);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .page-indicator {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            background: #f1f5f9;
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        /* ユーティリティ */
+        .highlight-box {
+            background: #f0fdf4;
+            border-left: 4px solid var(--secondary-color);
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .alert-box {
+            background: #fff8e1;
+            border-left: 4px solid #ffb300;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        code.inline {
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #d946ef;
+            font-size: 1rem;
+        }
+
+        /* ユーザの声用カード */
+        .voice-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .voice-card {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+
+        .voice-icon {
+            font-size: 2rem;
+            line-height: 1;
+        }
+
+        .voice-text {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+        .voice-name {
+            font-size: 0.85rem;
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>#5 最終課題：消防水利マッピングアプリの開発</h1>
+        <div class="course-title">LGWAN環境 Webアプリ開発研修</div>
+    </header>
+
+    <div class="slide-container">
+
+        <!-- スライド 1: タイトル -->
+        <section class="slide active">
+            <div style="text-align: center; margin-top: 10vh;">
+                <h2 style="border: none; justify-content: center; font-size: 3.5rem; color: var(--primary-color); margin-bottom: 30px;">最終課題：消防水利マップの開発</h2>
+                <p style="font-size: 1.5rem; color: var(--text-muted); margin-bottom: 50px;">オープンデータを活用した実践的Webアプリ構築</p>
+                
+                <div class="highlight-box" style="text-align: left; max-width: 700px; margin: 0 auto; background: #f0f7ff; border-left-color: var(--primary-color);">
+                    <h3 style="margin-top: 0; color: var(--primary-color);">本日の目標</h3>
+                    <ul>
+                        <li>これまでの研修の集大成として、<strong>「志賀町 消防水利マップ」</strong>を各自で作成します。</li>
+                        <li><strong>志賀町のオープンデータ</strong>（消防水利一覧）を実際に読み込んで利用します。</li>
+                        <li>有事の際、町民や県外からの応援支援者（消防関係者）が、<strong>スマートフォンで直感的に使えるアプリ</strong>を目指します。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- スライド 2: 課題の要件定義 -->
+        <section class="slide">
+            <h2>課題の要件定義</h2>
+            <p>以下の基本要件を満たすWebアプリを開発してください。</p>
+            
+            <div class="highlight-box">
+                <h3 style="margin-top:0;">基本仕様</h3>
+                <ul>
+                    <li><strong>データ活用：</strong> 志賀町のオープンデータ「消防水利」一覧をマッピングする。</li>
+                    <li><strong>スマホ最適化：</strong> スマートフォンでの利用を想定したレイアウトにする。</li>
+                    <li><strong>ロゴ配置：</strong> 画面のわかりやすい場所に志賀町の町章ロゴを配置する。</li>
+                    <li><strong>ナビゲーション機能：</strong> マーカーを押下すると詳細情報が表示され、「ここに行く」ボタンからGoogleマップのナビ機能へリンクする。</li>
+                    <li><strong>デザインの統一：</strong> トンマナ（トーン＆マナー）は本サイトのCSSカラーを踏襲する。</li>
+                </ul>
+            </div>
+
+            <div class="alert-box">
+                <h3 style="margin-top:0;">ディレクトリ構造の指定（練習）</h3>
+                <p>実際の開発現場を想定し、以下のディレクトリ構造でファイルを作成し、HTMLから相対パスで参照するように実装してください。</p>
+                <ul>
+                    <li><code class="inline">index.html</code> （アプリ本体）</li>
+                    <li><code class="inline">./data/suiri.csv</code> （消防水利のCSVデータ）</li>
+                    <li><code class="inline">./images/logo.png</code> （志賀町の町章ロゴ画像）</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- スライド 3: デザイン素材と技術 -->
+        <section class="slide">
+            <h2>利用する素材とヒント</h2>
+            
+            <div style="display: flex; gap: 20px; align-items: stretch;">
+                <div style="flex: 1; padding: 20px; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <h3 style="color: var(--primary-color); margin-top: 0;">SVGアイコンの利用</h3>
+                    <p>マップ上のマーカーは、防火水槽と消火栓で分けて表示します。以下のサイトからアイコンを利用してください。</p>
+                    <ul style="font-size: 0.95rem; word-break: break-all;">
+                        <li><strong>防火水槽（水滴）：</strong><br>
+                        <a href="https://icooon-mono.com/10938-%e7%9f%b3%e6%b2%b9%e3%81%ae%e6%b0%b4%e6%bb%b4%e3%82%a2%e3%82%a4%e3%82%b3%e3%83%b31/" target="_blank">https://icooon-mono.com/10938...</a></li>
+                        <li style="margin-top: 10px;"><strong>消火栓（消火器）：</strong><br>
+                        <a href="https://icooon-mono.com/12869-%e6%b6%88%e7%81%ab%e5%99%a8%e3%81%ae%e3%82%a2%e3%82%a4%e3%82%b3%e3%83%b34/" target="_blank">https://icooon-mono.com/12869...</a></li>
+                    </ul>
+                </div>
+
+                <div style="flex: 1; padding: 20px; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <h3 style="color: var(--secondary-color); margin-top: 0;">Googleマップ連携のヒント</h3>
+                    <p>「ここに行く」ボタンのリンク先を以下のように設定することで、スマホのGoogleマップアプリ（ナビ）が直接起動します。</p>
+                    <div style="background: #eee; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; word-break: break-all;">
+                        https://www.google.com/maps/dir/?api=1&destination=緯度,経度
+                    </div>
+                </div>
+            </div>
+
+            <div class="highlight-box" style="margin-top: 20px;">
+                <h3 style="margin-top: 0;">AIへの指示（プロンプト）のコツ</h3>
+                <p>
+                    「Leaflet.jsを使ってマップを作り、<code>./data/suiri.csv</code> を <code>fetch</code> してマーカーを立てて」<br>
+                    など、要件とディレクトリ構造を具体的にAIに伝えることが成功の鍵です。
+                </p>
+            </div>
+        </section>
+
+        <!-- スライド 4: UI/UXの検討 -->
+        <section class="slide">
+            <h2>UI / UX の検討（アプリの使いやすさ）</h2>
+            <p>要件の最後に<strong>「消防水利を必要とするシーンを想定した便利な機能」</strong>とあります。AIにコードを作らせる前に、どのようなアプリが使いやすいかアイディアを練りましょう。</p>
+            
+            <div class="highlight-box" style="background: #f8fafc; border-left-color: var(--primary-color);">
+                <h3 style="margin-top: 0;">検討すべきポイント（例）</h3>
+                <ul>
+                    <li><strong>起動画面：</strong> URLを開いていきなりマップが表示されるのが良いか？ それとも「志賀町 消防水利マップ」という起動画面（スプラッシュ画面）を数秒挟むほうがアプリらしいか？</li>
+                    <li><strong>初期表示：</strong> 地図の初期位置は「志賀町役場」にするか？ それとも起動時にGPSを使って「ユーザーの現在地」から表示するか？</li>
+                    <li><strong>検索機能：</strong> 土地勘のない人のために、地名や住所で絞り込める検索バーは必要か？</li>
+                    <li><strong>操作性：</strong> マップ上に「現在地に戻るボタン」や「防火水槽だけを表示するフィルターボタン」があると便利ではないか？</li>
+                </ul>
+            </div>
+
+            <p>プロンプトに<strong>「起動時に現在地を取得して、そこを中心にマップを描画して」</strong>などと追加することで、より実践的なアプリに仕上がります。</p>
+        </section>
+
+        <!-- スライド 5: ユーザの声 -->
+        <section class="slide">
+            <h2>要件チェック：ユーザの声を叶えられているか？</h2>
+            <p>以下のターゲットユーザたちの「要望」を満たせているか、チームで動作確認（テスト）を行いましょう。</p>
+
+            <div class="voice-grid">
+                <!-- 町民 -->
+                <div class="voice-card">
+                    <div class="voice-icon">👵</div>
+                    <div>
+                        <div class="voice-name">町民 ①</div>
+                        <div class="voice-text">「自分の地区の消防水利が一目でわかるといいわ」</div>
+                    </div>
+                </div>
+                <div class="voice-card">
+                    <div class="voice-icon">👨</div>
+                    <div>
+                        <div class="voice-name">町民 ②</div>
+                        <div class="voice-text">「雪の日に優先的に消防水利のまわりを雪かきしたいから、平時から自分の家の周りの水利の場所がわかるといいな」</div>
+                    </div>
+                </div>
+                <div class="voice-card">
+                    <div class="voice-icon">👩</div>
+                    <div>
+                        <div class="voice-name">町民 ③</div>
+                        <div class="voice-text">「行政のシステムって文字が多くてわかりにくいから、かわいく、目に優しいデザインがいいな。」</div>
+                    </div>
+                </div>
+                <div class="voice-card">
+                    <div class="voice-icon">📱</div>
+                    <div>
+                        <div class="voice-name">町民 ④</div>
+                        <div class="voice-text">「使い方のマニュアルが、アプリの中に用意されていると助かるわ。」</div>
+                    </div>
+                </div>
+
+                <!-- 消防隊 -->
+                <div class="voice-card" style="border-left: 4px solid #ef4444;">
+                    <div class="voice-icon">🚒</div>
+                    <div>
+                        <div class="voice-name">県外消防隊 ①</div>
+                        <div class="voice-text">「県外の地名や水利の状態は分からないから、全く土地勘がない人でも分かりやすくして欲しい。」</div>
+                    </div>
+                </div>
+                <div class="voice-card" style="border-left: 4px solid #ef4444;">
+                    <div class="voice-icon">🧑‍🚒</div>
+                    <div>
+                        <div class="voice-name">県外消防隊 ②</div>
+                        <div class="voice-text">「現場に急行出来るように、現在地からのルート表示や、地名検索などがあると嬉しい。」</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <h3 style="color: var(--primary-color);">それでは、AIを使った最終課題の開発をスタートしてください！</h3>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- コントロールエリア -->
+    <div class="controls">
+        <button id="prevBtn" class="btn" onclick="prevSlide()" disabled>← 前へ</button>
+        <div id="pageIndicator" class="page-indicator">1 / 5</div>
+        <button id="nextBtn" class="btn" onclick="nextSlide()">次へ →</button>
+    </div>
+
+    <script>
+        // スライドナビゲーション
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pageIndicator = document.getElementById('pageIndicator');
+        const container = document.querySelector('.slide-container');
+
+        function updateSlide() {
+            slides.forEach((slide, index) => slide.classList.toggle('active', index === currentSlide));
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            pageIndicator.textContent = `${currentSlide + 1} / ${slides.length}`;
+            container.scrollTop = 0;
+        }
+
+        function nextSlide() { if (currentSlide < slides.length - 1) { currentSlide++; updateSlide(); } }
+        function prevSlide() { if (currentSlide > 0) { currentSlide--; updateSlide(); } }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSlide();
+        });
+    </script>
+</body>
+</html>
